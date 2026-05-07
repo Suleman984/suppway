@@ -42,6 +42,19 @@ export function Hero() {
         .from(".hero-cta", { opacity: 0, y: 16, duration: 0.6, stagger: 0.1 }, "-=0.3")
         .from(".hero-scroll", { opacity: 0, duration: 0.6 }, "-=0.2");
 
+      // Continuous wave across the headline letters once they've landed.
+      // Per-letter stagger creates the phase offset; sine.inOut + yoyo gives
+      // a smooth sinusoidal bob.
+      gsap.to(".hero-letter", {
+        y: -10,
+        duration: 1.4,
+        ease: "sine.inOut",
+        repeat: -1,
+        yoyo: true,
+        stagger: { each: 0.06, from: "start" },
+        delay: 1.6,
+      });
+
       gsap.to(".hero-orb-a", {
         x: 80,
         y: -40,
