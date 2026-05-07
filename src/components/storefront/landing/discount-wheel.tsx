@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { Gift, Plus, Sparkles, X } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
@@ -113,6 +113,7 @@ export function DiscountWheel() {
   const [spinning, setSpinning] = useState(false);
   const [spun, setSpun] = useState(false);
   const [showCards, setShowCards] = useState(false);
+  const [source, setSource] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     setSpun(getInitialSpun());
@@ -120,10 +121,20 @@ export function DiscountWheel() {
 
   const handleSpin = () => {
     if (spun || spinning || !wheelRef.current) return;
+
+    // Capture the wheel's current screen center so cards eject from there.
+    const svg = wheelRef.current.ownerSVGElement;
+    if (svg) {
+      const rect = svg.getBoundingClientRect();
+      setSource({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+    }
+
+    // Cards layer mounts immediately; each puck has its own delayed timeline
+    // so the wheel keeps spinning visibly while pucks are ejected.
+    setShowCards(true);
     setSpinning(true);
 
     const finalRotation = 1800 + Math.random() * 360;
-    // Two-stage tween: small wind-up backward, then long smooth spin forward.
     const tl = gsap.timeline({
       onComplete: () => {
         setSpinning(false);
@@ -133,7 +144,6 @@ export function DiscountWheel() {
         } catch {
           /* ignore */
         }
-        setShowCards(true);
       },
     });
     tl.to(wheelRef.current, {
@@ -380,16 +390,20 @@ export function DiscountWheel() {
         </div>
       </div>
 
-      {showCards && (
-        <RewardCardsLayer onClose={() => setShowCards(false)} prizes={PRIZES} />
+      {showCards && source && (
+        <RewardCardsLayer
+          onClose={() => setShowCards(false)}
+          prizes={PRIZES}
+          source={source}
+        />
       )}
     </>
   );
 }
 
-// Spread positions across the hero area (left + center). The wheel sits on
-// the right, so all card targets stay clear of that zone. Calibrated for
-// lg (1024px) and above.
+// Scatter positions relative to viewport center (the wheel sits on the right
+// at lg+, so all targets stay on the left/center side). Calibrated for
+// 1024px+ viewports.
 const SCATTER = [
   { x: -560, y: -260, rot: -8 },  // top-left, near eyebrow
   { x: -200, y: -300, rot: 5 },   // above headline
@@ -399,31 +413,145 @@ const SCATTER = [
   { x: -160, y: 250, rot: -10 },  // near stats
 ];
 
+// Each card is ejected from the wheel partway through the spin, not all at
+// the end. Sums to ~6s — the spin's total duration — so the last puck lands
+// just as the wheel stops.
+const EJECT_TIMES = [0.7, 1.2, 1.7, 2.2, 2.7, 3.2];
+
 interface LayerProps {
   prizes: Prize[];
   onClose: () => void;
+  source: { x: number; y: number };
 }
 
-function RewardCardsLayer({ prizes, onClose }: LayerProps) {
+function RewardCardsLayer({ prizes, onClose, source }: LayerProps) {
   const layerRef = useRef<HTMLDivElement>(null);
+  const wrapRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const puckRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const tweensRef = useRef<gsap.core.Timeline[]>([]);
+  const [landed, setLanded] = useState<Set<string>>(new Set());
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const add = useCartStore((s) => s.add);
 
   useEffect(() => {
-    if (!layerRef.current) return;
-    const cards = layerRef.current.querySelectorAll<HTMLDivElement>(".reward-card");
-    gsap.set(cards, { opacity: 0, scale: 0, rotation: -180, x: 0, y: 0 });
-    gsap.to(cards, {
-      opacity: 1,
-      scale: 1,
-      x: (i) => SCATTER[i % SCATTER.length]!.x,
-      y: (i) => SCATTER[i % SCATTER.length]!.y,
-      rotation: (i) => SCATTER[i % SCATTER.length]!.rot,
-      duration: 1.3,
-      ease: "elastic.out(1, 0.6)",
-      stagger: 0.45,
+    if (typeof window === "undefined") return;
+    const VW = window.innerWidth;
+    const VH = window.innerHeight;
+
+    prizes.forEach((p, i) => {
+      const wrap = wrapRefs.current[i];
+      const puck = puckRefs.current[i];
+      const card = cardRefs.current[i];
+      if (!wrap || !puck || !card) return;
+
+      const s = SCATTER[i % SCATTER.length]!;
+      const tx = VW / 2 + s.x;
+      const ty = VH / 2 + s.y;
+      const ejectAt = EJECT_TIMES[i] ?? 0.7 + i * 0.5;
+
+      // Initial state — both elements parked at the wheel center, puck small
+      // and visible, card invisible.
+      gsap.set(wrap, { x: source.x, y: source.y, force3D: true });
+      gsap.set(puck, {
+        xPercent: -50,
+        yPercent: -50,
+        scale: 0.2,
+        rotation: 0,
+        opacity: 1,
+      });
+      gsap.set(card, {
+        xPercent: -50,
+        yPercent: -50,
+        scale: 0,
+        opacity: 0,
+        rotation: s.rot - 30,
+      });
+
+      const tl = gsap.timeline({ delay: ejectAt });
+      tweensRef.current[i] = tl;
+
+      // 1. Eject — puck flies in an arc; X reaches target while Y overshoots
+      //    upward (so the subsequent drop has gravity).
+      tl.to(
+        wrap,
+        {
+          x: tx,
+          duration: 0.95,
+          ease: "power2.out",
+        },
+        0,
+      )
+        .to(
+          wrap,
+          {
+            y: ty - 110,
+            duration: 0.5,
+            ease: "power2.out",
+          },
+          0,
+        )
+        .to(
+          puck,
+          {
+            scale: 1,
+            rotation: 720,
+            duration: 0.95,
+            ease: "power2.out",
+          },
+          0,
+        );
+
+      // 2. Drop with multi-bounce — bounce.out gives 4 bounces of decreasing
+      //    amplitude. Puck keeps rotating during the bounces.
+      tl.to(wrap, {
+        y: ty,
+        duration: 1.5,
+        ease: "bounce.out",
+      }).to(
+        puck,
+        {
+          rotation: "+=580",
+          duration: 1.5,
+          ease: "none",
+        },
+        "<",
+      );
+
+      // 3. Morph — puck shrinks out as the rectangular card pops in at the
+      //    same point with a back ease.
+      tl.to(puck, {
+        scale: 0,
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.in",
+      })
+        .to(
+          card,
+          {
+            scale: 1,
+            opacity: 1,
+            rotation: s.rot,
+            duration: 0.6,
+            ease: "back.out(1.5)",
+            onStart: () => {
+              setLanded((prev) => {
+                if (prev.has(p.id)) return prev;
+                const next = new Set(prev);
+                next.add(p.id);
+                return next;
+              });
+            },
+          },
+          "<-0.1",
+        );
     });
-  }, []);
+
+    return () => {
+      tweensRef.current.forEach((tl) => tl?.kill());
+      tweensRef.current = [];
+    };
+  }, [prizes, source]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -434,9 +562,8 @@ function RewardCardsLayer({ prizes, onClose }: LayerProps) {
   }, [onClose]);
 
   const removeCard = (id: string, animate = true) => {
-    const card = layerRef.current?.querySelector<HTMLDivElement>(
-      `[data-prize-id="${id}"]`,
-    );
+    const i = prizes.findIndex((p) => p.id === id);
+    const wrap = wrapRefs.current[i];
     const finish = () => {
       setDismissed((prev) => {
         const next = new Set(prev);
@@ -445,11 +572,11 @@ function RewardCardsLayer({ prizes, onClose }: LayerProps) {
         return next;
       });
     };
-    if (!animate || !card) {
+    if (!animate || !wrap) {
       finish();
       return;
     }
-    gsap.to(card, {
+    gsap.to(wrap, {
       scale: 0,
       opacity: 0,
       rotation: "+=120",
@@ -475,21 +602,14 @@ function RewardCardsLayer({ prizes, onClose }: LayerProps) {
   return (
     <div
       ref={layerRef}
-      className="fixed inset-0 z-[80]"
+      className="pointer-events-none fixed inset-0 z-[80]"
       role="dialog"
       aria-label="Discount rewards"
     >
       <button
         type="button"
-        aria-label="Dismiss rewards"
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-black/55 backdrop-blur-sm"
-      />
-
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute right-6 top-6 inline-flex h-11 items-center gap-2 rounded-full border border-white/20 bg-white/5 px-5 text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur transition hover:bg-white/10"
+        className="pointer-events-auto absolute right-6 top-6 inline-flex h-11 items-center gap-2 rounded-full border border-white/20 bg-black/40 px-5 text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur transition hover:bg-black/60"
       >
         <X className="h-4 w-4" />
         Close
@@ -497,15 +617,28 @@ function RewardCardsLayer({ prizes, onClose }: LayerProps) {
 
       {prizes.map((p, i) => {
         if (dismissed.has(p.id)) return null;
+        const hasLanded = landed.has(p.id);
         return (
           <div
             key={p.id}
-            data-prize-id={p.id}
-            className="reward-card absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            ref={(el) => {
+              wrapRefs.current[i] = el;
+            }}
+            className="absolute left-0 top-0 will-change-transform"
             style={{ zIndex: 90 + i }}
           >
-            <RewardCard
+            <Puck
+              ref={(el) => {
+                puckRefs.current[i] = el;
+              }}
               prize={p}
+            />
+            <RewardCard
+              ref={(el) => {
+                cardRefs.current[i] = el;
+              }}
+              prize={p}
+              interactive={hasLanded}
               onClaim={() => handleClaim(p)}
               onDismiss={() => removeCard(p.id)}
             />
@@ -516,19 +649,75 @@ function RewardCardsLayer({ prizes, onClose }: LayerProps) {
   );
 }
 
+const Puck = forwardRef<HTMLDivElement, { prize: Prize }>(function Puck(
+  { prize: p },
+  ref,
+) {
+  const [imgFailed, setImgFailed] = useState(false);
+  return (
+    <div
+      ref={ref}
+      className="pointer-events-none absolute left-0 top-0 h-20 w-20 will-change-transform"
+      style={{
+        filter: `drop-shadow(0 10px 18px ${p.accent}88) drop-shadow(0 0 14px ${p.accent}66)`,
+      }}
+    >
+      <div
+        className="relative h-full w-full overflow-hidden rounded-full border-2 border-white/80"
+        style={{ boxShadow: `0 0 0 4px ${p.accent}55` }}
+      >
+        {imgFailed ? (
+          <div
+            aria-hidden
+            className="flex h-full w-full items-center justify-center"
+            style={{
+              background: `radial-gradient(circle at 30% 25%, ${p.accent}cc, ${p.accent}33 70%, #181818)`,
+            }}
+          >
+            <span className="text-3xl font-black text-white">
+              {p.name.charAt(0)}
+            </span>
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={p.image}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={() => setImgFailed(true)}
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0c]/80 via-transparent to-transparent" />
+        <span className="absolute inset-x-0 bottom-0 bg-[#ff3b3b] py-0.5 text-center text-[9px] font-black uppercase tracking-[0.15em] text-white">
+          {p.discount}% off
+        </span>
+      </div>
+    </div>
+  );
+});
+
 interface CardProps {
   prize: Prize;
+  interactive?: boolean;
   onClaim: () => void;
   onDismiss: () => void;
 }
 
-function RewardCard({ prize: p, onClaim, onDismiss }: CardProps) {
+const RewardCard = forwardRef<HTMLDivElement, CardProps>(function RewardCard(
+  { prize: p, interactive = true, onClaim, onDismiss },
+  ref,
+) {
   const [imgFailed, setImgFailed] = useState(false);
   const discountedPrice = Math.round(p.originalPrice * (1 - p.discount / 100));
 
   return (
     <article
-      className="group relative w-52 overflow-hidden rounded-2xl border border-white/15 bg-[#0c0c0c] shadow-[0_20px_50px_rgba(0,0,0,0.6)] transition duration-300 hover:scale-[1.06] hover:border-white/30"
+      ref={ref}
+      className={`group absolute left-0 top-0 w-52 overflow-hidden rounded-2xl border border-white/15 bg-[#0c0c0c] shadow-[0_20px_50px_rgba(0,0,0,0.6)] will-change-transform transition-[transform,border-color] duration-300 ${
+        interactive
+          ? "pointer-events-auto hover:scale-[1.06] hover:border-white/30"
+          : "pointer-events-none"
+      }`}
       style={{ boxShadow: `0 20px 50px ${p.accent}33` }}
     >
       <div className="relative h-28 overflow-hidden">
@@ -601,4 +790,4 @@ function RewardCard({ prize: p, onClaim, onDismiss }: CardProps) {
       </div>
     </article>
   );
-}
+});
