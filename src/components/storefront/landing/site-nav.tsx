@@ -7,6 +7,7 @@ import { Menu, X, ShoppingBag } from "lucide-react";
 import { BrandParticles } from "./brand-particles";
 import { ParticleText } from "./particle-text";
 import { CartDrawer } from "../cart-drawer";
+import { DiscountWheel } from "./discount-wheel";
 import { useCartStore } from "@/stores/cart-store";
 
 const LINKS = [
@@ -90,6 +91,7 @@ export function SiteNav() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <DiscountWheel />
           <button
             type="button"
             onClick={openCart}

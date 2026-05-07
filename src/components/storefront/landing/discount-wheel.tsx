@@ -1,8 +1,9 @@
 "use client";
 
 import { forwardRef, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { gsap } from "gsap";
-import { Gift, Plus, Sparkles, X } from "lucide-react";
+import { Plus, Sparkles, X } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 
 interface Prize {
@@ -78,12 +79,8 @@ const PRIZES: Prize[] = [
   },
 ];
 
-const PANEL_BG =
-  "https://images.pexels.com/photos/4498482/pexels-photo-4498482.jpeg?auto=compress&cs=tinysrgb&w=900";
-
 const SESSION_KEY = "suppway:wheel-spun";
 const SEGMENT_DEG = 360 / PRIZES.length;
-const RIM_LEDS = 16;
 
 const fmt = (n: number) => `Rs. ${n.toLocaleString("en-PK")}`;
 
@@ -161,234 +158,103 @@ export function DiscountWheel() {
 
   return (
     <>
-      <div
-        className="relative overflow-hidden rounded-3xl border border-white/15 p-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)]"
-        style={{
-          backgroundImage: `url(${PANEL_BG})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
+      <button
+        type="button"
+        onClick={handleSpin}
+        disabled={spun || spinning}
+        aria-label={
+          spun
+            ? "Discount wheel already claimed"
+            : spinning
+              ? "Spinning the discount wheel"
+              : "Spin to win a discount"
+        }
+        title={
+          spun ? "Already claimed" : spinning ? "Spinning…" : "Spin to win"
+        }
+        className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 transition ${
+          spun
+            ? "cursor-not-allowed opacity-40"
+            : "hover:scale-110 hover:border-white/40"
+        }`}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-black/85 via-black/75 to-black/95" />
-        <div
+        {/* Pulse ring to draw the eye when not yet spun */}
+        {!spun && !spinning && (
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-full border border-[#ff3b3b]/60 animate-ping"
+          />
+        )}
+
+        <svg
+          viewBox="0 0 200 200"
+          className="h-9 w-9 drop-shadow-[0_0_8px_rgba(255,59,59,0.45)]"
+        >
+          <defs>
+            {PRIZES.map((p) => (
+              <linearGradient
+                key={`grad-${p.id}`}
+                id={`nav-grad-${p.id}`}
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor={p.accent} stopOpacity="1" />
+                <stop offset="100%" stopColor={p.accent} stopOpacity="0.7" />
+              </linearGradient>
+            ))}
+          </defs>
+
+          <circle
+            cx="100"
+            cy="100"
+            r="98"
+            fill="#0c0c0c"
+            stroke="rgba(255,255,255,0.18)"
+            strokeWidth="2"
+          />
+
+          <g ref={wheelRef}>
+            {PRIZES.map((p, i) => {
+              const start = i * SEGMENT_DEG;
+              const end = (i + 1) * SEGMENT_DEG;
+              return (
+                <path
+                  key={p.id}
+                  d={segmentPath(start, end, 88)}
+                  fill={`url(#nav-grad-${p.id})`}
+                  stroke="rgba(0,0,0,0.4)"
+                  strokeWidth={1.5}
+                />
+              );
+            })}
+            <circle
+              cx="100"
+              cy="100"
+              r="18"
+              fill="#0c0c0c"
+              stroke="#ffffff"
+              strokeWidth="3"
+            />
+            <circle cx="100" cy="100" r="8" fill="#ff3b3b" />
+          </g>
+        </svg>
+
+        {/* Tiny pointer at top */}
+        <span
           aria-hidden
-          className="absolute inset-0 opacity-[0.06]"
+          className="absolute left-1/2 top-0 -translate-x-1/2"
           style={{
-            backgroundImage:
-              "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
+            width: 0,
+            height: 0,
+            borderLeft: "5px solid transparent",
+            borderRight: "5px solid transparent",
+            borderTop: "7px solid #ffffff",
+            filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.6))",
           }}
         />
-
-        <div className="relative flex flex-col items-center">
-          <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#ffae00]">
-            <Sparkles className="mr-1 inline h-3 w-3" />
-            Spin · Win · Save
-          </p>
-
-          <div className="relative mt-4">
-            {/* Pointer */}
-            <div
-              aria-hidden
-              className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-2"
-              style={{
-                width: 0,
-                height: 0,
-                borderLeft: "12px solid transparent",
-                borderRight: "12px solid transparent",
-                borderTop: "20px solid #ffffff",
-                filter:
-                  "drop-shadow(0 4px 8px rgba(0,0,0,0.6)) drop-shadow(0 0 12px rgba(255,59,59,0.5))",
-              }}
-            />
-            <div
-              aria-hidden
-              className="absolute left-1/2 top-0 z-10 h-3 w-3 -translate-x-1/2 -translate-y-3 rounded-full bg-[#ff3b3b] shadow-[0_0_12px_#ff3b3b]"
-            />
-
-            <svg
-              viewBox="0 0 200 200"
-              className="h-60 w-60 drop-shadow-[0_25px_60px_rgba(255,59,59,0.4)]"
-            >
-              <defs>
-                <radialGradient id="wheel-gloss" cx="50%" cy="32%" r="62%">
-                  <stop offset="0%" stopColor="rgba(255,255,255,0.35)" />
-                  <stop offset="55%" stopColor="rgba(255,255,255,0)" />
-                </radialGradient>
-                <radialGradient id="hub-grad" cx="50%" cy="40%" r="60%">
-                  <stop offset="0%" stopColor="#3a3a3a" />
-                  <stop offset="100%" stopColor="#0c0c0c" />
-                </radialGradient>
-                {PRIZES.map((p) => (
-                  <linearGradient
-                    key={`grad-${p.id}`}
-                    id={`grad-${p.id}`}
-                    x1="0%"
-                    y1="0%"
-                    x2="0%"
-                    y2="100%"
-                  >
-                    <stop offset="0%" stopColor={p.accent} stopOpacity="1" />
-                    <stop offset="100%" stopColor={p.accent} stopOpacity="0.65" />
-                  </linearGradient>
-                ))}
-              </defs>
-
-              {/* Outer ring */}
-              <circle
-                cx="100"
-                cy="100"
-                r="98"
-                fill="#0c0c0c"
-                stroke="rgba(255,255,255,0.12)"
-                strokeWidth="1"
-              />
-
-              {/* LED rim */}
-              {Array.from({ length: RIM_LEDS }).map((_, i) => {
-                const angle = (i / RIM_LEDS) * 360;
-                const pos = polar(100, 100, 95, angle);
-                const isHot = i % 2 === 0;
-                return (
-                  <circle
-                    key={`led-${i}`}
-                    cx={pos.x}
-                    cy={pos.y}
-                    r="1.6"
-                    fill={isHot ? "#ffae00" : "#ffffff"}
-                    opacity={isHot ? 1 : 0.55}
-                    style={{
-                      filter: isHot
-                        ? "drop-shadow(0 0 3px #ffae00)"
-                        : "drop-shadow(0 0 2px rgba(255,255,255,0.6))",
-                    }}
-                  />
-                );
-              })}
-
-              <g ref={wheelRef}>
-                {PRIZES.map((p, i) => {
-                  const start = i * SEGMENT_DEG;
-                  const end = (i + 1) * SEGMENT_DEG;
-                  const mid = start + SEGMENT_DEG / 2;
-                  const labelPos = polar(100, 100, 60, mid);
-                  return (
-                    <g key={p.id}>
-                      <path
-                        d={segmentPath(start, end)}
-                        fill={`url(#grad-${p.id})`}
-                        stroke="rgba(0,0,0,0.5)"
-                        strokeWidth={1}
-                      />
-                      <text
-                        x={labelPos.x}
-                        y={labelPos.y - 4}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        transform={`rotate(${mid} ${labelPos.x} ${labelPos.y - 4})`}
-                        fill="#ffffff"
-                        fontSize="15"
-                        fontWeight="900"
-                        style={{ letterSpacing: "0.04em" }}
-                      >
-                        {p.discount}%
-                      </text>
-                      <text
-                        x={labelPos.x}
-                        y={labelPos.y + 8}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        transform={`rotate(${mid} ${labelPos.x} ${labelPos.y + 8})`}
-                        fill="rgba(255,255,255,0.85)"
-                        fontSize="6"
-                        fontWeight="700"
-                        style={{ letterSpacing: "0.18em" }}
-                      >
-                        OFF
-                      </text>
-                    </g>
-                  );
-                })}
-
-                {/* Spoke lines for segment dividers */}
-                {PRIZES.map((_, i) => {
-                  const angle = i * SEGMENT_DEG;
-                  const inner = polar(100, 100, 22, angle);
-                  const outer = polar(100, 100, 92, angle);
-                  return (
-                    <line
-                      key={`spoke-${i}`}
-                      x1={inner.x}
-                      y1={inner.y}
-                      x2={outer.x}
-                      y2={outer.y}
-                      stroke="rgba(0,0,0,0.35)"
-                      strokeWidth="0.8"
-                    />
-                  );
-                })}
-
-                {/* Glossy highlight overlay */}
-                <circle
-                  cx="100"
-                  cy="100"
-                  r="92"
-                  fill="url(#wheel-gloss)"
-                  pointerEvents="none"
-                />
-
-                {/* Center hub */}
-                <circle cx="100" cy="100" r="22" fill="url(#hub-grad)" />
-                <circle
-                  cx="100"
-                  cy="100"
-                  r="22"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.25)"
-                  strokeWidth="1"
-                />
-                <circle
-                  cx="100"
-                  cy="100"
-                  r="8"
-                  fill="#ff3b3b"
-                  style={{ filter: "drop-shadow(0 0 6px #ff3b3b)" }}
-                />
-              </g>
-            </svg>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSpin}
-            disabled={spun || spinning}
-            className={`mt-6 inline-flex h-12 w-full max-w-[220px] items-center justify-center gap-2 rounded-full px-7 text-xs font-bold uppercase tracking-[0.2em] transition ${
-              spun
-                ? "cursor-not-allowed border border-white/15 bg-white/5 text-white/40"
-                : spinning
-                  ? "cursor-wait bg-white/15 text-white"
-                  : "bg-gradient-to-r from-[#ff3b3b] to-[#ff6b35] text-white shadow-[0_10px_35px_rgba(255,59,59,0.5)] hover:shadow-[0_15px_45px_rgba(255,59,59,0.7)]"
-            }`}
-          >
-            {spun ? (
-              "Already claimed"
-            ) : spinning ? (
-              <>
-                <Sparkles className="h-4 w-4 animate-spin" />
-                Spinning…
-              </>
-            ) : (
-              <>
-                <Gift className="h-4 w-4" />
-                Spin to win
-              </>
-            )}
-          </button>
-          <p className="mt-2 text-[10px] uppercase tracking-[0.3em] text-white/40">
-            1 spin per session
-          </p>
-        </div>
-      </div>
+      </button>
 
       {showCards && source && (
         <RewardCardsLayer
@@ -401,16 +267,16 @@ export function DiscountWheel() {
   );
 }
 
-// Scatter positions relative to viewport center (the wheel sits on the right
-// at lg+, so all targets stay on the left/center side). Calibrated for
-// 1024px+ viewports.
+// Scatter positions relative to viewport center. Source is the navbar wheel
+// at top-right of the viewport, so cards fall across the full hero — left,
+// center, and right — avoiding the very top strip where the navbar sits.
 const SCATTER = [
-  { x: -560, y: -260, rot: -8 },  // top-left, near eyebrow
-  { x: -200, y: -300, rot: 5 },   // above headline
-  { x: -610, y: -40, rot: 11 },   // beside headline, far left
-  { x: -260, y: -30, rot: -4 },   // beside headline
-  { x: -490, y: 220, rot: 7 },    // above stats area
-  { x: -160, y: 250, rot: -10 },  // near stats
+  { x: -560, y: -200, rot: -10 },  // top-left, just below navbar
+  { x: -180, y: -240, rot: 5 },    // top-center, above headline
+  { x: 240, y: -180, rot: 11 },    // top-right
+  { x: -480, y: 170, rot: 8 },     // bottom-left, near stats
+  { x: -120, y: 230, rot: -6 },    // bottom-center, near stats
+  { x: 280, y: 140, rot: -12 },    // bottom-right
 ];
 
 // Each card is ejected from the wheel partway through the spin, not all at
@@ -432,7 +298,16 @@ function RewardCardsLayer({ prizes, onClose, source }: LayerProps) {
   const tweensRef = useRef<gsap.core.Timeline[]>([]);
   const [landed, setLanded] = useState<Set<string>>(new Set());
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [mounted, setMounted] = useState(false);
   const add = useCartStore((s) => s.add);
+
+  // Render via a portal to document.body so the layer's `fixed` positioning
+  // is viewport-relative — DiscountWheel's parent in hero.tsx applies a
+  // -translate-y-1/2 transform which would otherwise contain `fixed` and
+  // pile the cards next to the wheel.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -468,90 +343,69 @@ function RewardCardsLayer({ prizes, onClose, source }: LayerProps) {
         rotation: s.rot - 30,
       });
 
+      // Source is at the top of the viewport (navbar). The puck slides
+      // horizontally to its column while bouncing vertically — bounce.out on
+      // a long Y span gives multiple decreasing bounces as it "lands".
+      // Timeline (seconds from ejectAt):
+      //   0.00–1.10s  X eases to target
+      //   0.00–2.05s  Y bounces from source to target (multi-bounce baked in)
+      //   0.00–2.05s  Puck spins and scales up to 1
+      //   2.00–2.30s  Puck shrinks/fades out
+      //   1.95–2.55s  Card pops in with back.out
       const tl = gsap.timeline({ delay: ejectAt });
       tweensRef.current[i] = tl;
 
-      // 1. Eject — puck flies in an arc; X reaches target while Y overshoots
-      //    upward (so the subsequent drop has gravity).
-      tl.to(
-        wrap,
-        {
-          x: tx,
-          duration: 0.95,
-          ease: "power2.out",
-        },
-        0,
-      )
-        .to(
-          wrap,
-          {
-            y: ty - 110,
-            duration: 0.5,
-            ease: "power2.out",
-          },
-          0,
-        )
-        .to(
-          puck,
-          {
-            scale: 1,
-            rotation: 720,
-            duration: 0.95,
-            ease: "power2.out",
-          },
-          0,
-        );
+      tl.to(wrap, { x: tx, duration: 1.1, ease: "power2.out" }, 0);
+      tl.to(wrap, { y: ty, duration: 2.05, ease: "bounce.out" }, 0);
 
-      // 2. Drop with multi-bounce — bounce.out gives 4 bounces of decreasing
-      //    amplitude. Puck keeps rotating during the bounces.
-      tl.to(wrap, {
-        y: ty,
-        duration: 1.5,
-        ease: "bounce.out",
-      }).to(
+      tl.to(
         puck,
         {
-          rotation: "+=580",
-          duration: 1.5,
+          scale: 1,
+          rotation: 1320,
+          duration: 2.05,
           ease: "none",
         },
-        "<",
+        0,
       );
 
-      // 3. Morph — puck shrinks out as the rectangular card pops in at the
-      //    same point with a back ease.
-      tl.to(puck, {
-        scale: 0,
-        opacity: 0,
-        duration: 0.3,
-        ease: "power2.in",
-      })
-        .to(
-          card,
-          {
-            scale: 1,
-            opacity: 1,
-            rotation: s.rot,
-            duration: 0.6,
-            ease: "back.out(1.5)",
-            onStart: () => {
-              setLanded((prev) => {
-                if (prev.has(p.id)) return prev;
-                const next = new Set(prev);
-                next.add(p.id);
-                return next;
-              });
-            },
+      tl.to(
+        puck,
+        {
+          scale: 0,
+          opacity: 0,
+          duration: 0.3,
+          ease: "power2.in",
+        },
+        2.0,
+      );
+
+      tl.to(
+        card,
+        {
+          scale: 1,
+          opacity: 1,
+          rotation: s.rot,
+          duration: 0.6,
+          ease: "back.out(1.5)",
+          onStart: () => {
+            setLanded((prev) => {
+              if (prev.has(p.id)) return prev;
+              const next = new Set(prev);
+              next.add(p.id);
+              return next;
+            });
           },
-          "<-0.1",
-        );
+        },
+        1.95,
+      );
     });
 
     return () => {
       tweensRef.current.forEach((tl) => tl?.kill());
       tweensRef.current = [];
     };
-  }, [prizes, source]);
+  }, [prizes, source, mounted]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -599,7 +453,9 @@ function RewardCardsLayer({ prizes, onClose, source }: LayerProps) {
     removeCard(p.id);
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       ref={layerRef}
       className="pointer-events-none fixed inset-0 z-[80]"
@@ -645,7 +501,8 @@ function RewardCardsLayer({ prizes, onClose, source }: LayerProps) {
           </div>
         );
       })}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -713,9 +570,9 @@ const RewardCard = forwardRef<HTMLDivElement, CardProps>(function RewardCard(
   return (
     <article
       ref={ref}
-      className={`group absolute left-0 top-0 w-52 overflow-hidden rounded-2xl border border-white/15 bg-[#0c0c0c] shadow-[0_20px_50px_rgba(0,0,0,0.6)] will-change-transform transition-[transform,border-color] duration-300 ${
+      className={`group absolute left-0 top-0 w-52 overflow-hidden rounded-2xl border border-white/15 bg-[#0c0c0c] shadow-[0_20px_50px_rgba(0,0,0,0.6)] will-change-transform transition-colors duration-200 ${
         interactive
-          ? "pointer-events-auto hover:scale-[1.06] hover:border-white/30"
+          ? "pointer-events-auto hover:border-white/30"
           : "pointer-events-none"
       }`}
       style={{ boxShadow: `0 20px 50px ${p.accent}33` }}
