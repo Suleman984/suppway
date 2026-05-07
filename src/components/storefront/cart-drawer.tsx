@@ -110,7 +110,7 @@ export function CartDrawer() {
               </span>
               <div>
                 <p className="text-lg font-black uppercase tracking-tight">
-                  Cart's empty
+                  Cart&apos;s empty
                 </p>
                 <p className="mt-1 text-sm text-white/50">
                   Add something brutal.
