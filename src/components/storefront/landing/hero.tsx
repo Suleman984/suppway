@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { BRAND } from "@/lib/brand";
 import { Counter } from "./counter";
+import { ParticleText } from "./particle-text";
 
 /**
  * Hero with looping Pexels gym video as background. The video is
@@ -39,7 +40,6 @@ export function Hero() {
         )
         .from(".hero-sub", { opacity: 0, y: 20, duration: 0.7 }, "-=0.4")
         .from(".hero-cta", { opacity: 0, y: 16, duration: 0.6, stagger: 0.1 }, "-=0.3")
-        .from(".hero-stat", { opacity: 0, y: 14, duration: 0.5, stagger: 0.08 }, "-=0.3")
         .from(".hero-scroll", { opacity: 0, duration: 0.6 }, "-=0.2");
 
       gsap.to(".hero-orb-a", {
@@ -168,28 +168,52 @@ export function Hero() {
           <div className="hero-stat">
             <dt className="flex items-baseline text-3xl font-black text-white md:text-4xl">
               <Counter to={12} duration={1.8} />
-              <span className="ml-1 text-base font-bold text-white/70">yrs</span>
+              <ParticleText
+                className="ml-1 text-base font-bold text-white/70"
+                delay={1.5}
+                duration={0.55}
+              >
+                yrs
+              </ParticleText>
             </dt>
             <dd className="mt-1 text-xs uppercase tracking-wider text-white/60">
-              coaching lifters
+              <ParticleText delay={1.55} duration={0.55}>
+                coaching lifters
+              </ParticleText>
             </dd>
           </div>
           <div className="hero-stat">
             <dt className="flex items-baseline text-3xl font-black text-white md:text-4xl">
               <Counter to={240} duration={2.2} thousands />
-              <span className="ml-0.5 text-[#ff3b3b]">+</span>
+              <ParticleText
+                className="ml-0.5 text-[#ff3b3b]"
+                delay={1.3}
+                duration={0.55}
+              >
+                +
+              </ParticleText>
             </dt>
             <dd className="mt-1 text-xs uppercase tracking-wider text-white/60">
-              active members
+              <ParticleText delay={1.35} duration={0.55}>
+                active members
+              </ParticleText>
             </dd>
           </div>
           <div className="hero-stat">
             <dt className="flex items-baseline text-3xl font-black text-white md:text-4xl">
               <Counter to={4.9} decimals={1} duration={2} />
-              <span className="ml-1 text-[#ffae00]">★</span>
+              <ParticleText
+                className="ml-1 text-[#ffae00]"
+                delay={1.1}
+                duration={0.55}
+              >
+                ★
+              </ParticleText>
             </dt>
             <dd className="mt-1 text-xs uppercase tracking-wider text-white/60">
-              supplement rating
+              <ParticleText delay={1.15} duration={0.55}>
+                supplement rating
+              </ParticleText>
             </dd>
           </div>
         </dl>

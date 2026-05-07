@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { Menu, X, ShoppingBag } from "lucide-react";
 import { BrandParticles } from "./brand-particles";
+import { ParticleText } from "./particle-text";
 
 const LINKS = [
   { href: "#supplements", label: "Supplements" },
@@ -60,9 +61,12 @@ export function SiteNav() {
           className="flex items-center gap-2 text-base font-black uppercase tracking-tight text-white"
         >
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#ff3b3b] text-sm font-black">
-            S
+            <ParticleText enter="spiral" duration={1.0}>S</ParticleText>
           </span>
-          <BrandParticles className="hidden sm:inline-block align-middle" />
+          <BrandParticles
+            className="hidden sm:inline-block align-middle"
+            delay={0.7}
+          />
         </Link>
 
         <nav className="hidden items-center gap-8 lg:flex">
