@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { Menu, X, ShoppingBag } from "lucide-react";
-import { BRAND } from "@/lib/brand";
+import { BrandParticles } from "./brand-particles";
 
 const LINKS = [
   { href: "#supplements", label: "Supplements" },
@@ -62,7 +62,7 @@ export function SiteNav() {
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#ff3b3b] text-sm font-black">
             S
           </span>
-          <span className="hidden sm:inline">{BRAND.name}</span>
+          <BrandParticles className="hidden sm:inline-block align-middle" />
         </Link>
 
         <nav className="hidden items-center gap-8 lg:flex">
