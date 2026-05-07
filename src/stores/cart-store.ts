@@ -19,6 +19,7 @@ interface CartState {
   toggleCart: () => void;
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
+  add: (item: CartItem) => void;
 }
 
 const SEED: CartItem[] = [
@@ -62,4 +63,16 @@ export const useCartStore = create<CartState>((set) => ({
     })),
   remove: (id) =>
     set((s) => ({ items: s.items.filter((it) => it.id !== id) })),
+  add: (item) =>
+    set((s) => {
+      const existing = s.items.find((it) => it.id === item.id);
+      if (existing) {
+        return {
+          items: s.items.map((it) =>
+            it.id === item.id ? { ...it, qty: it.qty + item.qty } : it,
+          ),
+        };
+      }
+      return { items: [...s.items, item] };
+    }),
 }));

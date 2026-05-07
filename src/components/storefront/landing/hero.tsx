@@ -6,6 +6,7 @@ import { gsap } from "gsap";
 import { BRAND } from "@/lib/brand";
 import { Counter } from "./counter";
 import { ParticleText } from "./particle-text";
+import { DiscountWheel } from "./discount-wheel";
 
 /**
  * Hero with looping Pexels gym video as background. The video is
@@ -230,6 +231,12 @@ export function Hero() {
             </dd>
           </div>
         </dl>
+      </div>
+
+      <div className="pointer-events-none absolute right-8 top-1/2 z-20 hidden -translate-y-1/2 lg:block xl:right-16">
+        <div className="pointer-events-auto">
+          <DiscountWheel />
+        </div>
       </div>
 
       <div
