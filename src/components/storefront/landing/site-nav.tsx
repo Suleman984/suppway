@@ -6,6 +6,8 @@ import { gsap } from "gsap";
 import { Menu, X, ShoppingBag } from "lucide-react";
 import { BrandParticles } from "./brand-particles";
 import { ParticleText } from "./particle-text";
+import { CartDrawer } from "../cart-drawer";
+import { useCartStore } from "@/stores/cart-store";
 
 const LINKS = [
   { href: "#supplements", label: "Supplements" },
@@ -19,6 +21,10 @@ export function SiteNav() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navRef = useRef<HTMLElement>(null);
+  const cartCount = useCartStore((s) =>
+    s.items.reduce((n, it) => n + it.qty, 0),
+  );
+  const openCart = useCartStore((s) => s.openCart);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -46,6 +52,7 @@ export function SiteNav() {
   }, [open]);
 
   return (
+    <>
     <header
       ref={navRef}
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
@@ -83,17 +90,22 @@ export function SiteNav() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/cart"
-            prefetch
-            aria-label="Cart"
+          <button
+            type="button"
+            onClick={openCart}
+            aria-label={`Cart (${cartCount} ${cartCount === 1 ? "item" : "items"})`}
             className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-white transition hover:bg-white/10"
           >
             <ShoppingBag className="h-4 w-4" />
-            <span className="absolute -right-1 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#ff3b3b] text-[10px] font-bold">
-              0
+            <span
+              className={`absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[#ff3b3b] px-1 text-[10px] font-bold tabular-nums transition-transform ${
+                cartCount > 0 ? "scale-100" : "scale-0"
+              }`}
+              aria-hidden
+            >
+              {cartCount}
             </span>
-          </Link>
+          </button>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -127,5 +139,7 @@ export function SiteNav() {
         </nav>
       </div>
     </header>
+    <CartDrawer />
+    </>
   );
 }
