@@ -87,7 +87,7 @@ export function ParticleText({
     if (!oc) return;
     oc.scale(dpr, dpr);
     oc.font = font;
-    oc.textBaseline = "top";
+    oc.textBaseline = "alphabetic";
     oc.fillStyle = color;
     if ("letterSpacing" in oc) {
       (oc as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
@@ -96,10 +96,11 @@ export function ParticleText({
 
     const metrics = oc.measureText(text);
     const fontSizePx = parseFloat(cs.fontSize);
-    const ascent = metrics.actualBoundingBoxAscent || fontSizePx * 0.85;
-    const descent = metrics.actualBoundingBoxDescent || fontSizePx * 0.2;
-    const innerY0 = Math.max(0, (H - (ascent + descent)) / 2);
-    oc.fillText(text, pad, pad + innerY0);
+    const ascent = metrics.actualBoundingBoxAscent || fontSizePx * 0.78;
+    const descent = metrics.actualBoundingBoxDescent || fontSizePx * 0.22;
+    // Center the *visible* glyph (not the EM box) within the wrapper height.
+    const baselineY = (H + ascent - descent) / 2;
+    oc.fillText(text, pad, pad + baselineY);
 
     const data = oc.getImageData(0, 0, sw, sh).data;
     const targets: { x: number; y: number }[] = [];
@@ -203,12 +204,12 @@ export function ParticleText({
       ctx.clearRect(0, 0, cW, cH);
       ctx.font = font;
       ctx.fillStyle = color;
-      ctx.textBaseline = "top";
+      ctx.textBaseline = "alphabetic";
       if ("letterSpacing" in ctx) {
         (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
           letterSpacing;
       }
-      ctx.fillText(text, pad, pad + innerY0);
+      ctx.fillText(text, pad, pad + baselineY);
     };
 
     const pxSize = 1 / dpr;
