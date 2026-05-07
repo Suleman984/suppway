@@ -1,0 +1,155 @@
+import type { Theme, ThemeId } from "./types";
+
+/**
+ * Five built-in themes. The admin can switch between them from
+ * /admin/themes. Each theme defines HSL color tokens consumed by Tailwind
+ * via the CSS variables declared in src/styles/globals.css.
+ */
+export const THEMES: Record<ThemeId, Theme> = {
+  classic: {
+    id: "classic",
+    name: "Classic",
+    description: "Clean and timeless — a safe choice for any audience.",
+    surface: "light",
+    preview: { bg: "#ffffff", primary: "#0f172a" },
+    display: { uppercaseHeadings: false, tracking: "normal", radius: "0.5rem" },
+    tokens: {
+      background: "0 0% 100%",
+      foreground: "222 47% 11%",
+      card: "0 0% 100%",
+      cardForeground: "222 47% 11%",
+      primary: "222 47% 11%",
+      primaryForeground: "210 40% 98%",
+      secondary: "210 40% 96%",
+      secondaryForeground: "222 47% 11%",
+      muted: "210 40% 96%",
+      mutedForeground: "215 16% 47%",
+      accent: "210 40% 96%",
+      accentForeground: "222 47% 11%",
+      destructive: "0 84% 60%",
+      destructiveForeground: "210 40% 98%",
+      border: "214 32% 91%",
+      input: "214 32% 91%",
+      ring: "222 47% 11%",
+    },
+  },
+
+  powerhouse: {
+    id: "powerhouse",
+    name: "Powerhouse",
+    description: "Dark gym aesthetic with bold orange — high-energy, pro lifter vibe.",
+    surface: "dark",
+    preview: { bg: "#0a0a0a", primary: "#ff7a1a" },
+    display: { uppercaseHeadings: true, tracking: "wide", radius: "0.25rem" },
+    tokens: {
+      background: "0 0% 4%",
+      foreground: "0 0% 98%",
+      card: "0 0% 7%",
+      cardForeground: "0 0% 98%",
+      primary: "22 100% 55%",
+      primaryForeground: "0 0% 4%",
+      secondary: "0 0% 14%",
+      secondaryForeground: "0 0% 98%",
+      muted: "0 0% 12%",
+      mutedForeground: "0 0% 63%",
+      accent: "22 100% 55%",
+      accentForeground: "0 0% 4%",
+      destructive: "0 84% 60%",
+      destructiveForeground: "0 0% 98%",
+      border: "0 0% 16%",
+      input: "0 0% 16%",
+      ring: "22 100% 55%",
+    },
+  },
+
+  iron: {
+    id: "iron",
+    name: "Iron",
+    description: "Black and red — raw, aggressive, hardcore.",
+    surface: "dark",
+    preview: { bg: "#0a0a0a", primary: "#dc2626" },
+    display: { uppercaseHeadings: true, tracking: "wide", radius: "0rem" },
+    tokens: {
+      background: "0 0% 5%",
+      foreground: "0 0% 98%",
+      card: "0 0% 9%",
+      cardForeground: "0 0% 98%",
+      primary: "0 73% 50%",
+      primaryForeground: "0 0% 98%",
+      secondary: "0 0% 14%",
+      secondaryForeground: "0 0% 98%",
+      muted: "0 0% 12%",
+      mutedForeground: "0 0% 60%",
+      accent: "0 73% 50%",
+      accentForeground: "0 0% 98%",
+      destructive: "0 84% 60%",
+      destructiveForeground: "0 0% 98%",
+      border: "0 0% 18%",
+      input: "0 0% 18%",
+      ring: "0 73% 50%",
+    },
+  },
+
+  pulse: {
+    id: "pulse",
+    name: "Pulse",
+    description: "Vibrant, modern, energetic — appeals to a younger fitness crowd.",
+    surface: "light",
+    preview: { bg: "#f8fafc", primary: "#10b981" },
+    display: { uppercaseHeadings: false, tracking: "tight", radius: "0.75rem" },
+    tokens: {
+      background: "210 40% 98%",
+      foreground: "222 47% 11%",
+      card: "0 0% 100%",
+      cardForeground: "222 47% 11%",
+      primary: "160 84% 39%",
+      primaryForeground: "0 0% 100%",
+      secondary: "210 40% 94%",
+      secondaryForeground: "222 47% 11%",
+      muted: "210 40% 94%",
+      mutedForeground: "215 16% 47%",
+      accent: "160 84% 39%",
+      accentForeground: "0 0% 100%",
+      destructive: "0 84% 60%",
+      destructiveForeground: "0 0% 100%",
+      border: "214 32% 88%",
+      input: "214 32% 88%",
+      ring: "160 84% 39%",
+    },
+  },
+
+  minimal: {
+    id: "minimal",
+    name: "Minimal",
+    description: "Soft monochrome — premium, editorial, supplement-brand polish.",
+    surface: "light",
+    preview: { bg: "#fafaf9", primary: "#1c1917" },
+    display: { uppercaseHeadings: false, tracking: "normal", radius: "1rem" },
+    tokens: {
+      background: "60 9% 98%",
+      foreground: "20 14% 10%",
+      card: "0 0% 100%",
+      cardForeground: "20 14% 10%",
+      primary: "20 14% 10%",
+      primaryForeground: "60 9% 98%",
+      secondary: "60 5% 92%",
+      secondaryForeground: "20 14% 10%",
+      muted: "60 5% 92%",
+      mutedForeground: "25 5% 45%",
+      accent: "60 5% 92%",
+      accentForeground: "20 14% 10%",
+      destructive: "0 84% 60%",
+      destructiveForeground: "60 9% 98%",
+      border: "20 6% 90%",
+      input: "20 6% 90%",
+      ring: "20 14% 10%",
+    },
+  },
+};
+
+export const THEME_IDS = Object.keys(THEMES) as ThemeId[];
+
+export function getTheme(id: string | null | undefined): Theme {
+  if (id && id in THEMES) return THEMES[id as ThemeId];
+  return THEMES.classic;
+}
