@@ -60,7 +60,7 @@ export function SiteNav() {
           className="flex items-center gap-2 text-base font-black uppercase tracking-tight text-white"
         >
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#ff3b3b] text-sm font-black">
-            F
+            S
           </span>
           <span className="hidden sm:inline">{BRAND.name}</span>
         </Link>

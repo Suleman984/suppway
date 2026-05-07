@@ -41,7 +41,7 @@ export function SiteFooter() {
           <div className="md:col-span-4">
             <Link href="/" className="flex items-center gap-2 text-base font-black uppercase">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#ff3b3b] text-sm font-black">
-                F
+                S
               </span>
               {BRAND.name}
             </Link>
@@ -76,9 +76,7 @@ export function SiteFooter() {
           ))}
 
           <div className="md:col-span-2">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">
-              Newsletter
-            </p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/40">Newsletter</p>
             <NewsletterForm />
           </div>
         </div>

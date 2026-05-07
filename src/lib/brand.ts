@@ -4,16 +4,16 @@
  * before the admin has populated `store_settings`.
  */
 export const BRAND = {
-  name: "thefitnesshub1789",
-  shortName: "Fitness Hub",
+  name: "suppway",
+  shortName: "Suppway",
   tagline: "Train brutal. Recover smart. Look the part.",
   whatsapp: "+92 300 1234567",
-  email: "hello@thefitnesshub1789.com",
+  email: "hello@suppway.com",
   city: "Lahore, Pakistan",
   founded: 1789,
   social: {
-    instagram: "https://instagram.com/thefitnesshub1789",
-    youtube: "https://youtube.com/@thefitnesshub1789",
-    tiktok: "https://tiktok.com/@thefitnesshub1789",
+    instagram: "https://instagram.com/suppway",
+    youtube: "https://youtube.com/@suppway",
+    tiktok: "https://tiktok.com/@suppway",
   },
 } as const;
