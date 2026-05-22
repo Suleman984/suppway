@@ -1,12 +1,28 @@
-export const dynamic = "force-dynamic"; // cart is per-session, never cache
+import { SiteNav } from "@/components/storefront/landing/site-nav";
+import { SiteFooter } from "@/components/storefront/landing/site-footer";
+import { CartPageClient } from "@/components/storefront/cart-page";
 
+export const dynamic = "force-dynamic"; // cart is per-session, never cache
 export const metadata = { title: "Your cart" };
 
 export default function CartPage() {
   return (
-    <section className="container py-12">
-      <h1 className="text-3xl font-bold">Your cart</h1>
-      <p className="mt-2 text-muted-foreground">Cart UI placeholder.</p>
-    </section>
+    <>
+      <SiteNav />
+      <main className="pt-24">
+        <section className="container py-12">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#ff3b3b]">
+            Cart
+          </p>
+          <h1 className="mt-3 text-4xl font-black uppercase tracking-tight text-white md:text-5xl">
+            Your cart
+          </h1>
+          <div className="mt-10">
+            <CartPageClient />
+          </div>
+        </section>
+      </main>
+      <SiteFooter />
+    </>
   );
 }

@@ -1,14 +1,28 @@
-export const dynamic = "force-dynamic";
+import { SiteNav } from "@/components/storefront/landing/site-nav";
+import { SiteFooter } from "@/components/storefront/landing/site-footer";
+import { CheckoutPageClient } from "@/components/storefront/checkout-page";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Checkout", robots: { index: false } };
 
 export default function CheckoutPage() {
   return (
-    <section className="container py-12">
-      <h1 className="text-3xl font-bold">Checkout</h1>
-      <p className="mt-2 text-muted-foreground">
-        Checkout placeholder — call <code>getPaymentProvider</code> to render the chosen rail.
-      </p>
-    </section>
+    <>
+      <SiteNav />
+      <main className="pt-24">
+        <section className="container py-12">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#ff3b3b]">
+            Secure checkout
+          </p>
+          <h1 className="mt-3 text-4xl font-black uppercase tracking-tight text-white md:text-5xl">
+            Almost there
+          </h1>
+          <div className="mt-10">
+            <CheckoutPageClient />
+          </div>
+        </section>
+      </main>
+      <SiteFooter />
+    </>
   );
 }

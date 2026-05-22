@@ -22,36 +22,9 @@ interface CartState {
   add: (item: CartItem) => void;
 }
 
-const SEED: CartItem[] = [
-  {
-    id: "iso-whey",
-    name: "Iso-Whey Pure",
-    flavor: "Chocolate Brownie · 2kg",
-    qty: 2,
-    price: 5499,
-    accent: "#ff3b3b",
-  },
-  {
-    id: "creapure",
-    name: "Creapure® Mono",
-    flavor: "Unflavored · 500g",
-    qty: 1,
-    price: 3299,
-    accent: "#00d4ff",
-  },
-  {
-    id: "preworkout",
-    name: "Pre-Workout V2",
-    flavor: "Blue Raspberry · 30 servings",
-    qty: 1,
-    price: 4799,
-    accent: "#ffae00",
-  },
-];
-
 export const useCartStore = create<CartState>((set) => ({
   open: false,
-  items: SEED,
+  items: [],
   openCart: () => set({ open: true }),
   closeCart: () => set({ open: false }),
   toggleCart: () => set((s) => ({ open: !s.open })),

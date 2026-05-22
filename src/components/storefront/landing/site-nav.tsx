@@ -11,10 +11,11 @@ import { DiscountWheel } from "./discount-wheel";
 import { useCartStore } from "@/stores/cart-store";
 
 const LINKS = [
-  { href: "#supplements", label: "Supplements" },
-  { href: "/collection/apparel", label: "Apparel" },
-  { href: "/collection/equipment", label: "Equipment" },
-  { href: "#programs", label: "Coaching" },
+  { href: "/products", label: "Shop" },
+  { href: "/products?kind=supplement", label: "Supplements" },
+  { href: "/products?kind=apparel", label: "Apparel" },
+  { href: "/products?kind=equipment", label: "Equipment" },
+  { href: "/products?kind=accessory", label: "Accessories" },
   { href: "/account", label: "Account" },
 ];
 

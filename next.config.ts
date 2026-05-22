@@ -7,7 +7,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co" },
       { protocol: "https", hostname: "**.supabase.in" },
+      { protocol: "https", hostname: "images.pexels.com" },
+      { protocol: "https", hostname: "images.unsplash.com" },
     ],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 60 * 60 * 24 * 30,
   },
   experimental: {
     serverActions: {

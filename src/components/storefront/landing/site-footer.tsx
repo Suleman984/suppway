@@ -6,19 +6,19 @@ const COLUMNS = [
   {
     title: "Shop",
     links: [
-      { href: "/collection/protein", label: "Protein" },
-      { href: "/collection/creatine", label: "Creatine" },
-      { href: "/collection/pre-workout", label: "Pre-Workout" },
-      { href: "/collection/apparel", label: "Apparel" },
-      { href: "/collection/equipment", label: "Equipment" },
+      { href: "/products", label: "All products" },
+      { href: "/products?kind=supplement", label: "Supplements" },
+      { href: "/products?kind=apparel", label: "Apparel" },
+      { href: "/products?kind=equipment", label: "Equipment" },
+      { href: "/products?kind=accessory", label: "Accessories" },
     ],
   },
   {
     title: "Train",
     links: [
-      { href: "#programs", label: "Coaching plans" },
-      { href: "/products?type=program", label: "1-on-1 coaching" },
-      { href: "/products?type=membership", label: "Gym membership" },
+      { href: "/#programs", label: "Coaching plans" },
+      { href: "/products?sort=rating", label: "Top rated" },
+      { href: "/products?sort=price-asc", label: "Best value" },
     ],
   },
   {
@@ -26,7 +26,7 @@ const COLUMNS = [
     links: [
       { href: "/account", label: "My account" },
       { href: "/cart", label: "Cart" },
-      { href: "/products", label: "All products" },
+      { href: "/checkout", label: "Checkout" },
       { href: "#", label: "Shipping & returns" },
       { href: "#", label: "Contact us" },
     ],

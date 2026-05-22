@@ -1,80 +1,17 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRef } from "react";
 import { Plus, Star } from "lucide-react";
 import { useReveal } from "@/lib/animations/use-reveal";
+import {
+  formatPKR,
+  getDummyBestsellers,
+  type DummyProduct,
+} from "@/lib/catalog/products";
 
-interface Product {
-  slug: string;
-  name: string;
-  category: string;
-  flavor: string;
-  price: number;
-  oldPrice?: number;
-  rating: number;
-  reviews: number;
-  badge?: string;
-  gradient: string;
-  short: string;
-  /** Big readable mark stamped on the bottle */
-  mark: string;
-}
-
-const PRODUCTS: Product[] = [
-  {
-    slug: "iso-whey-2kg",
-    name: "Iso-Whey 2kg",
-    category: "Protein",
-    flavor: "Belgian Chocolate",
-    price: 8499,
-    oldPrice: 9999,
-    rating: 4.9,
-    reviews: 412,
-    badge: "Bestseller",
-    gradient: "linear-gradient(155deg, #ff3b3b 0%, #2a0000 100%)",
-    short: "27g protein · 1g sugar · ultra-filtered isolate. Mixes clean in cold water.",
-    mark: "ISO",
-  },
-  {
-    slug: "creapure-300g",
-    name: "Creapure® 300g",
-    category: "Creatine",
-    flavor: "Unflavored",
-    price: 3299,
-    rating: 4.95,
-    reviews: 188,
-    gradient: "linear-gradient(155deg, #00d4ff 0%, #00131c 100%)",
-    short: "Pure German monohydrate. Micronised. 60 servings of 5g, no taste.",
-    mark: "MONO",
-  },
-  {
-    slug: "savage-pre",
-    name: "Savage Pre-Workout",
-    category: "Pre-Workout",
-    flavor: "Sour Watermelon",
-    price: 4799,
-    oldPrice: 5499,
-    rating: 4.8,
-    reviews: 267,
-    badge: "New",
-    gradient: "linear-gradient(155deg, #ffae00 0%, #2a1c00 100%)",
-    short: "L-citrulline 8g · beta-alanine 3.2g · caffeine 250mg. No proprietary blends.",
-    mark: "PRE",
-  },
-  {
-    slug: "omega3-1500",
-    name: "Omega-3 1500mg",
-    category: "Vitamins",
-    flavor: "120 softgels",
-    price: 2499,
-    rating: 4.85,
-    reviews: 96,
-    gradient: "linear-gradient(155deg, #a855f7 0%, #15052a 100%)",
-    short: "EPA + DHA. Reflux-free, lemon-coated softgels. 60-day supply.",
-    mark: "OMEGA",
-  },
-];
+const PRODUCTS: DummyProduct[] = getDummyBestsellers(4);
 
 export function Bestsellers() {
   const root = useRef<HTMLDivElement>(null);
@@ -148,42 +85,55 @@ export function Bestsellers() {
         </div>
 
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {PRODUCTS.map((p) => (
+          {PRODUCTS.map((p, i) => (
             <article
               key={p.slug}
               className="bs-card group relative isolate flex h-[480px] flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] transition-[transform,border-color] duration-500 hover:-translate-y-2 hover:border-white/30"
             >
-              {/* Product hero — gradient with stamped mark */}
               <Link
                 href={`/product/${p.slug}`}
                 prefetch
                 className="relative block h-full w-full overflow-hidden"
-                style={{ background: p.gradient }}
+                style={{
+                  background: `radial-gradient(circle at 30% 25%, ${p.accent}55, ${p.accent}10 60%, transparent), #0c0c0c`,
+                }}
                 aria-label={p.name}
               >
+                <Image
+                  src={p.images[0]}
+                  alt={p.name}
+                  fill
+                  sizes="(min-width:1024px) 25vw, (min-width:640px) 50vw, 100vw"
+                  priority={i < 2}
+                  className="object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
+                />
+                <div
+                  aria-hidden
+                  className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-black/30"
+                />
                 {p.badge && (
-                  <span className="absolute left-4 top-4 z-20 rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-neutral-900">
+                  <span
+                    className={`absolute left-4 top-4 z-20 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${
+                      p.badge === "Sale"
+                        ? "bg-[#ff3b3b] text-white"
+                        : p.badge === "Low stock"
+                          ? "bg-[#ffae00] text-neutral-900"
+                          : "bg-white text-neutral-900"
+                    }`}
+                  >
                     {p.badge}
                   </span>
                 )}
-                <span
-                  aria-hidden
-                  className="absolute inset-0 grid place-items-center text-[10rem] font-black uppercase leading-none tracking-tight text-white/[0.08] transition-transform duration-700 group-hover:scale-110"
-                >
-                  {p.mark}
-                </span>
                 <div className="absolute inset-x-0 bottom-0 z-10 p-6 text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/70">
-                    {p.category}
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/85">
+                    {p.categoryLabel}
                   </p>
                   <p className="mt-2 text-3xl font-black uppercase leading-none">
                     {p.name.split(" ")[0]}
                   </p>
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
               </Link>
 
-              {/* Slide-up info panel — covers the bottom on hover */}
               <div className="absolute inset-x-0 bottom-0 z-20 translate-y-[calc(100%-92px)] bg-[#070707]/95 px-5 pb-5 pt-4 backdrop-blur-md transition-transform duration-500 ease-[cubic-bezier(0.65,0,0.35,1)] group-hover:translate-y-0">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
@@ -197,15 +147,19 @@ export function Bestsellers() {
                 </div>
 
                 <div className="mt-3 flex items-baseline gap-2">
-                  <span className="text-xl font-black">PKR {p.price.toLocaleString()}</span>
+                  <span className="text-xl font-black tabular-nums">
+                    {formatPKR(p.price)}
+                  </span>
                   {p.oldPrice && (
-                    <span className="text-xs text-white/35 line-through">
-                      PKR {p.oldPrice.toLocaleString()}
+                    <span className="text-xs tabular-nums text-white/35 line-through">
+                      {formatPKR(p.oldPrice)}
                     </span>
                   )}
                 </div>
 
-                <p className="mt-3 text-xs leading-relaxed text-white/70">{p.short}</p>
+                <p className="mt-3 text-xs leading-relaxed text-white/70">
+                  {p.short}
+                </p>
 
                 <Link
                   href={`/product/${p.slug}`}

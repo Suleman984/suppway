@@ -146,7 +146,7 @@ export function Hero() {
 
         <div className="mt-10 flex flex-wrap gap-4">
           <Link
-            href="/collection/supplements"
+            href="/products?kind=supplement"
             prefetch
             className="hero-cta group relative inline-flex h-14 items-center gap-2 overflow-hidden rounded-full bg-[#ff3b3b] px-8 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-[#ff5252]"
           >

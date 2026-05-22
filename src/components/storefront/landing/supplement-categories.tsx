@@ -200,7 +200,7 @@ function FlipCard({ category: c }: { category: Category }) {
             <p className="mt-3 text-sm leading-relaxed text-white/95">{c.blurb}</p>
           </div>
           <Link
-            href={`/collection/${c.slug}`}
+            href={`/products?kind=supplement&cat=${c.slug}`}
             prefetch
             className="group/cta inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-3 text-xs font-bold uppercase tracking-widest text-neutral-900 transition hover:bg-neutral-100"
           >
