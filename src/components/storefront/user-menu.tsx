@@ -13,27 +13,34 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { signOut } from "@/server/actions/auth";
 
+export interface MenuUser {
+  id: string;
+  email: string | null;
+  isStaff: boolean;
+}
+
 interface MenuState {
   loading: boolean;
-  user: { id: string; email: string | null } | null;
-  isStaff: boolean;
+  user: MenuUser | null;
 }
 
 /**
  * Auth-aware user widget for the storefront nav. Logged out → "Sign in".
  * Logged in → avatar + dropdown (account, admin link if staff, sign out).
  *
- * Loads the user via the browser client, then subscribes to
- * onAuthStateChange so the menu stays accurate without a hard refresh
- * — covers cross-tab sign-out, token refresh failures, and re-auth.
+ * Initial state comes from the server (`initialUser` prop) because the
+ * Supabase auth cookies are httpOnly and the browser-side client can't
+ * read them. The browser client is still used to *subscribe* to
+ * onAuthStateChange so the menu reacts to cross-tab sign-out and to
+ * sign-in events that happen after first paint — but the source of
+ * truth for the initial render is the server.
  */
-export function UserMenu() {
+export function UserMenu({ initialUser = null }: { initialUser?: MenuUser | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const [state, setState] = useState<MenuState>({
-    loading: true,
-    user: null,
-    isStaff: false,
+    loading: false,
+    user: initialUser,
   });
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -41,51 +48,35 @@ export function UserMenu() {
 
   useEffect(() => {
     const supabase = createClient();
-    let cancelled = false;
-
-    async function load() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (cancelled) return;
-      if (!user) {
-        setState({ loading: false, user: null, isStaff: false });
-        return;
-      }
-      const { data: staff } = await supabase
-        .from("staff")
-        .select("status")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .maybeSingle();
-      if (cancelled) return;
-      setState({
-        loading: false,
-        user: { id: user.id, email: user.email ?? null },
-        isStaff: Boolean(staff),
-      });
-    }
-    load();
 
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      // Any sign-in or sign-out — even from another tab — invalidates the
-      // current server-rendered tree, so we refresh and re-read the user.
+      // We trust the server-rendered prop for the *current* user identity.
+      // Auth events just mean "something changed" — bounce a refresh so
+      // the server re-renders this component with fresh initial state.
       if (
         event === "SIGNED_IN" ||
         event === "SIGNED_OUT" ||
-        event === "USER_UPDATED" ||
-        event === "TOKEN_REFRESHED"
+        event === "USER_UPDATED"
       ) {
-        load();
+        // Optimistic local update so the avatar/menu flips immediately
+        // (without waiting for the router refresh round-trip).
+        if (event === "SIGNED_OUT") {
+          setState({ loading: false, user: null });
+        }
         router.refresh();
       }
     });
 
     return () => {
-      cancelled = true;
       sub.subscription.unsubscribe();
     };
   }, [router]);
+
+  // Whenever the server hands us a new `initialUser` (after a router
+  // refresh triggered by SessionWatcher / UserMenu itself), adopt it.
+  useEffect(() => {
+    setState({ loading: false, user: initialUser });
+  }, [initialUser]);
 
   // Close on outside click + Escape
   useEffect(() => {
@@ -136,10 +127,7 @@ export function UserMenu() {
     );
   }
 
-  const initial =
-    state.user.email?.charAt(0).toUpperCase() ??
-    state.user.email?.charAt(0).toUpperCase() ??
-    "U";
+  const initial = state.user.email?.charAt(0).toUpperCase() ?? "U";
 
   return (
     <div ref={containerRef} className="relative">
@@ -166,7 +154,7 @@ export function UserMenu() {
             <p className="mt-0.5 truncate text-sm font-bold">
               {state.user.email ?? "Account"}
             </p>
-            {state.isStaff && (
+            {state.user.isStaff && (
               <span className="mt-2 inline-flex rounded-full bg-[#ff3b3b]/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#ff3b3b]">
                 Staff
               </span>
@@ -185,7 +173,7 @@ export function UserMenu() {
               label="Orders"
               onClick={() => setOpen(false)}
             />
-            {state.isStaff && (
+            {state.user.isStaff && (
               <MenuLink
                 href="/admin/dashboard"
                 icon={<LayoutDashboard className="h-4 w-4" />}

@@ -1,4 +1,4 @@
-import { SiteNav } from "@/components/storefront/landing/site-nav";
+import { SiteNavServer } from "@/components/storefront/landing/site-nav-server";
 import { SiteFooter } from "@/components/storefront/landing/site-footer";
 import { CartPageClient } from "@/components/storefront/cart-page";
 
@@ -8,7 +8,7 @@ export const metadata = { title: "Your cart" };
 export default function CartPage() {
   return (
     <>
-      <SiteNav />
+      <SiteNavServer />
       <main className="pt-24">
         <section className="container py-12">
           <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#ff3b3b]">

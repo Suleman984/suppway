@@ -7,7 +7,7 @@ import { BrandParticles } from "./brand-particles";
 import { ParticleText } from "./particle-text";
 import { CartDrawer } from "../cart-drawer";
 import { DiscountWheel } from "./discount-wheel";
-import { UserMenu } from "../user-menu";
+import { UserMenu, type MenuUser } from "../user-menu";
 import { useCartStore } from "@/stores/cart-store";
 
 // Account/sign-in live in the UserMenu widget — it knows whether the user
@@ -20,7 +20,7 @@ const LINKS = [
   { href: "/products?kind=accessory", label: "Accessories" },
 ];
 
-export function SiteNav() {
+export function SiteNav({ user = null }: { user?: MenuUser | null } = {}) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const navRef = useRef<HTMLElement>(null);
@@ -84,7 +84,7 @@ export function SiteNav() {
 
         <div className="flex items-center gap-3">
           <DiscountWheel />
-          <UserMenu />
+          <UserMenu initialUser={user} />
           <button
             type="button"
             onClick={openCart}

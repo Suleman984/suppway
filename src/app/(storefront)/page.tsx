@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { BRAND } from "@/lib/brand";
 import { GsapProvider } from "@/components/storefront/gsap-provider";
-import { SiteNav } from "@/components/storefront/landing/site-nav";
+import { SiteNavServer } from "@/components/storefront/landing/site-nav-server";
 import { SiteFooter } from "@/components/storefront/landing/site-footer";
 import { Hero } from "@/components/storefront/landing/hero";
 import { Marquee } from "@/components/storefront/landing/marquee";
@@ -22,7 +22,7 @@ export default function HomePage() {
   return (
     <>
       <GsapProvider />
-      <SiteNav />
+      <SiteNavServer />
       <main>
         <Hero />
         <Marquee />

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { BRAND } from "@/lib/brand";
-import { SiteNav } from "@/components/storefront/landing/site-nav";
+import { SiteNavServer } from "@/components/storefront/landing/site-nav-server";
 import { SiteFooter } from "@/components/storefront/landing/site-footer";
 import { ProductCard } from "@/components/storefront/product-card";
 import { ProductDetail } from "@/components/storefront/product-detail";
@@ -70,7 +70,7 @@ export default async function ProductDetailPage({ params }: Props) {
 
   return (
     <>
-      <SiteNav />
+      <SiteNavServer />
       <main className="pt-24">
         <nav
           aria-label="Breadcrumb"

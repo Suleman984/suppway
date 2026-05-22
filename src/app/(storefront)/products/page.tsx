@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteNav } from "@/components/storefront/landing/site-nav";
+import { SiteNavServer } from "@/components/storefront/landing/site-nav-server";
 import { SiteFooter } from "@/components/storefront/landing/site-footer";
 import { ProductCard } from "@/components/storefront/product-card";
 import { DUMMY_PRODUCTS, type ProductKind } from "@/lib/catalog/products";
@@ -46,7 +46,7 @@ export default async function ProductsListPage({ searchParams }: Props) {
 
   return (
     <>
-      <SiteNav />
+      <SiteNavServer />
       <main className="pt-24">
         <header className="border-b border-white/10 bg-[#070707]">
           <div className="container py-12 md:py-16">

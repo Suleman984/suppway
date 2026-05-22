@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Award, ChevronRight, MapPin, Package, Settings, User } from "lucide-react";
-import { SiteNav } from "@/components/storefront/landing/site-nav";
+import { SiteNavServer } from "@/components/storefront/landing/site-nav-server";
 import { SiteFooter } from "@/components/storefront/landing/site-footer";
 import { AccountSignOut } from "@/components/storefront/account-signout";
 import { formatPKR, getAccountSnapshot } from "@/server/services/account";
@@ -40,7 +40,7 @@ export default async function AccountPage() {
 
   return (
     <>
-      <SiteNav />
+      <SiteNavServer />
       <main className="pt-24">
         <section className="container py-12">
           <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#ff3b3b]">
