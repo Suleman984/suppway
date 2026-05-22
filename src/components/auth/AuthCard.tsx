@@ -14,13 +14,13 @@ export function AuthCard({ title, subtitle, brandName, children, footer, classNa
   return (
     <div className={cn("mx-auto w-full max-w-sm space-y-6", className)}>
       <div className="text-center">
-        <Link href="/" className="inline-block text-lg font-semibold">
+        <Link href="/" className="inline-block text-lg font-semibold text-foreground">
           {brandName}
         </Link>
       </div>
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="rounded-lg border bg-card text-card-foreground p-6 shadow-sm">
         <div className="space-y-1.5 pb-4">
-          <h1 className="text-xl font-semibold">{title}</h1>
+          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         {children}

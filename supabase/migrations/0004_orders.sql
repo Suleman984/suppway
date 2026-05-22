@@ -4,7 +4,7 @@
 -- =============================================================================
 
 create table public.customers (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   user_id       uuid references public.profiles(id) on delete set null, -- null for guest checkouts
   email         citext unique not null,
   first_name    text,
@@ -20,7 +20,7 @@ create table public.customers (
 create trigger trg_customers_updated before update on public.customers for each row execute function public.set_updated_at();
 
 create table public.addresses (
-  id           uuid primary key default uuid_generate_v4(),
+  id           uuid primary key default gen_random_uuid(),
   customer_id  uuid references public.customers(id) on delete cascade,
   first_name   text,
   last_name    text,
@@ -38,7 +38,7 @@ create table public.addresses (
 );
 
 create table public.carts (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   customer_id uuid references public.customers(id) on delete set null,
   token       text not null unique,
   currency    text not null default 'PKR',
@@ -52,7 +52,7 @@ create table public.carts (
 create trigger trg_carts_updated before update on public.carts for each row execute function public.set_updated_at();
 
 create table public.cart_items (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   cart_id     uuid not null references public.carts(id) on delete cascade,
   variant_id  uuid not null references public.product_variants(id) on delete restrict,
   quantity    integer not null check (quantity > 0),
@@ -62,7 +62,7 @@ create table public.cart_items (
 create index idx_cart_items_cart on public.cart_items(cart_id);
 
 create table public.orders (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   customer_id     uuid references public.customers(id) on delete set null,
   order_number    text unique not null,
   status          text not null default 'pending'
@@ -93,7 +93,7 @@ create index idx_orders_funnel   on public.orders(funnel_session_id);
 create trigger trg_orders_updated before update on public.orders for each row execute function public.set_updated_at();
 
 create table public.order_items (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   order_id        uuid not null references public.orders(id) on delete cascade,
   variant_id      uuid not null references public.product_variants(id) on delete restrict,
   product_title   text not null,
@@ -110,7 +110,7 @@ create table public.order_items (
 create index idx_order_items_order on public.order_items(order_id);
 
 create table public.refunds (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   order_id    uuid not null references public.orders(id) on delete cascade,
   amount_cents integer not null check (amount_cents > 0),
   reason      text,

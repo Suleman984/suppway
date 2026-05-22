@@ -40,6 +40,14 @@ export const PERMISSIONS = {
   SETTINGS_VIEW: "settings.view",
   SETTINGS_UPDATE: "settings.update",
   INTEGRATIONS_MANAGE: "integrations.manage",
+
+  DISCOUNTS_VIEW: "discounts.view",
+  DISCOUNTS_CREATE: "discounts.create",
+  DISCOUNTS_UPDATE: "discounts.update",
+  DISCOUNTS_DELETE: "discounts.delete",
+
+  LOYALTY_VIEW: "loyalty.view",
+  LOYALTY_ADJUST: "loyalty.adjust",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

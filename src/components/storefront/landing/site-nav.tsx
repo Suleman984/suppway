@@ -7,15 +7,17 @@ import { BrandParticles } from "./brand-particles";
 import { ParticleText } from "./particle-text";
 import { CartDrawer } from "../cart-drawer";
 import { DiscountWheel } from "./discount-wheel";
+import { UserMenu } from "../user-menu";
 import { useCartStore } from "@/stores/cart-store";
 
+// Account/sign-in live in the UserMenu widget — it knows whether the user
+// is signed in and shows the right call to action.
 const LINKS = [
   { href: "/products", label: "Shop" },
   { href: "/products?kind=supplement", label: "Supplements" },
   { href: "/products?kind=apparel", label: "Apparel" },
   { href: "/products?kind=equipment", label: "Equipment" },
   { href: "/products?kind=accessory", label: "Accessories" },
-  { href: "/account", label: "Account" },
 ];
 
 export function SiteNav() {
@@ -82,6 +84,7 @@ export function SiteNav() {
 
         <div className="flex items-center gap-3">
           <DiscountWheel />
+          <UserMenu />
           <button
             type="button"
             onClick={openCart}

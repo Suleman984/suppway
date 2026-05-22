@@ -7,6 +7,8 @@ import { SignOutButton } from "@/components/auth/SignOutButton";
 const NAV = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/products", label: "Products" },
+  { href: "/admin/categories", label: "Categories" },
+  { href: "/admin/discounts", label: "Discounts" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/customers", label: "Customers" },
   { href: "/admin/funnels", label: "Funnels" },

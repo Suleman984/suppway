@@ -12,7 +12,7 @@ create table public.permissions (
 );
 
 create table public.roles (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   key         text unique not null,
   name        text not null,
   description text,

@@ -5,7 +5,7 @@
 -- =============================================================================
 
 create table public.payment_methods (
-  id                   uuid primary key default uuid_generate_v4(),
+  id                   uuid primary key default gen_random_uuid(),
   customer_id          uuid not null references public.customers(id) on delete cascade,
   provider             text not null check (provider in ('stripe','jazzcash','easypaisa','safepay','paypal')),
   provider_customer_id text not null,
@@ -20,7 +20,7 @@ create table public.payment_methods (
 create index idx_pm_customer on public.payment_methods(customer_id);
 
 create table public.payments (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   order_id        uuid references public.orders(id) on delete set null,
   provider        text not null,
   provider_payment_id text,
@@ -37,7 +37,7 @@ create trigger trg_payments_updated before update on public.payments for each ro
 
 -- Idempotent webhook log
 create table public.webhook_events (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   provider    text not null,
   external_id text not null,
   event_type  text not null,

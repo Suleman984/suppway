@@ -7,7 +7,7 @@
 create type product_kind as enum ('supplement','apparel','equipment','accessory','program','membership');
 
 create table public.categories (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   slug        text unique not null,
   title       text not null,
   description text,
@@ -23,7 +23,7 @@ create table public.categories (
 create trigger trg_categories_updated before update on public.categories for each row execute function public.set_updated_at();
 
 create table public.products (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   slug          text unique not null,
   title         text not null,
   description   text,
@@ -55,7 +55,7 @@ create index idx_products_published  on public.products(published_at desc);
 create trigger trg_products_updated before update on public.products for each row execute function public.set_updated_at();
 
 create table public.product_variants (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   product_id      uuid not null references public.products(id) on delete cascade,
   sku             text unique,
   title           text not null,
@@ -85,7 +85,7 @@ create table public.product_categories (
 );
 
 create table public.product_media (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   product_id  uuid not null references public.products(id) on delete cascade,
   url         text not null,
   alt         text,
@@ -95,7 +95,7 @@ create table public.product_media (
 create index idx_media_product on public.product_media(product_id);
 
 create table public.product_reviews (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   product_id  uuid not null references public.products(id) on delete cascade,
   customer_email citext,
   customer_name  text,

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "@/styles/globals.css";
 import { BRAND } from "@/lib/brand";
+import { SessionWatcher } from "@/components/auth/session-watcher";
 
 /**
  * Demo root layout — uses BRAND constants so the site renders without a
@@ -27,7 +28,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body className="min-h-screen bg-[#070707] text-white antialiased">{children}</body>
+      <body className="min-h-screen bg-background text-foreground antialiased">
+        <SessionWatcher />
+        {children}
+      </body>
     </html>
   );
 }

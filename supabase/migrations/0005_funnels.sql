@@ -4,7 +4,7 @@
 -- =============================================================================
 
 create table public.funnels (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   slug          text unique not null,
   name          text not null,
   description   text,
@@ -17,7 +17,7 @@ create table public.funnels (
 create trigger trg_funnels_updated before update on public.funnels for each row execute function public.set_updated_at();
 
 create table public.funnel_steps (
-  id           uuid primary key default uuid_generate_v4(),
+  id           uuid primary key default gen_random_uuid(),
   funnel_id    uuid not null references public.funnels(id) on delete cascade,
   slug         text not null,
   kind         text not null check (kind in ('landing','checkout','upsell','downsell','order_bump','thank_you','custom')),
@@ -40,7 +40,7 @@ alter table public.funnels add constraint fk_funnels_entry
   foreign key (entry_step_id) references public.funnel_steps(id) on delete set null;
 
 create table public.funnel_sessions (
-  id              uuid primary key default uuid_generate_v4(),
+  id              uuid primary key default gen_random_uuid(),
   funnel_id       uuid not null references public.funnels(id) on delete cascade,
   token           text not null unique,
   customer_id     uuid references public.customers(id) on delete set null,
@@ -58,7 +58,7 @@ create index idx_funnel_sessions_funnel on public.funnel_sessions(funnel_id);
 create trigger trg_funnel_sessions_updated before update on public.funnel_sessions for each row execute function public.set_updated_at();
 
 create table public.funnel_events (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   session_id  uuid not null references public.funnel_sessions(id) on delete cascade,
   step_id     uuid references public.funnel_steps(id) on delete set null,
   kind        text not null check (kind in ('viewed','accepted','declined','converted','abandoned')),

@@ -11,6 +11,7 @@ import {
   signInSchema,
   signUpSchema,
 } from "@/lib/validation/auth";
+import { landingPathForCurrentUser } from "@/lib/auth/landing";
 
 export type AuthActionResult =
   | { ok: true; message?: string }
@@ -43,7 +44,7 @@ export async function signInWithPassword(input: unknown): Promise<AuthActionResu
   });
   if (error) return { ok: false, error: error.message };
 
-  redirect(safeNext(parsed.data.next));
+  redirect(await landingPathForCurrentUser(supabase, parsed.data.next));
 }
 
 export async function signUpWithPassword(input: unknown): Promise<AuthActionResult> {
@@ -60,12 +61,15 @@ export async function signUpWithPassword(input: unknown): Promise<AuthActionResu
         full_name: parsed.data.fullName,
         marketing_opt_in: parsed.data.marketingOptIn,
       },
-      emailRedirectTo: `${origin}/auth/confirm?next=/account`,
+      // The confirm route will read the user's staff row and pick the
+      // right landing path; we pass an empty `next` so it falls through
+      // to the role-aware default.
+      emailRedirectTo: `${origin}/auth/confirm`,
     },
   });
   if (error) return { ok: false, error: error.message };
 
-  if (data.session) redirect("/account");
+  if (data.session) redirect(await landingPathForCurrentUser(supabase));
   return { ok: true, message: "Check your inbox for a verification link." };
 }
 
@@ -75,10 +79,11 @@ export async function signInWithMagicLink(input: unknown): Promise<AuthActionRes
 
   const supabase = await createClient();
   const origin = await getCallbackOrigin();
-  const next = safeNext(parsed.data.next);
+  // We let /auth/confirm pick the destination after verifyOtp succeeds.
+  const nextParam = parsed.data.next ? `?next=${encodeURIComponent(parsed.data.next)}` : "";
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
-    options: { emailRedirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(next)}` },
+    options: { emailRedirectTo: `${origin}/auth/confirm${nextParam}` },
   });
   if (error) return { ok: false, error: error.message };
 
@@ -88,10 +93,12 @@ export async function signInWithMagicLink(input: unknown): Promise<AuthActionRes
 export async function signInWithGoogle(next?: string): Promise<AuthActionResult & { url?: string }> {
   const supabase = await createClient();
   const origin = await getCallbackOrigin();
-  const target = safeNext(next);
+  const nextParam = next && next.startsWith("/") && !next.startsWith("//")
+    ? `?next=${encodeURIComponent(next)}`
+    : "";
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(target)}` },
+    options: { redirectTo: `${origin}/auth/callback${nextParam}` },
   });
   if (error) return { ok: false, error: error.message };
   if (!data.url) return { ok: false, error: "OAuth provider returned no URL" };
@@ -123,19 +130,26 @@ export async function resetPassword(input: unknown): Promise<AuthActionResult> {
   redirect("/account");
 }
 
+/**
+ * Sign out of the current device only. The refresh token for *this* session
+ * is revoked server-side, the session cookies are cleared, and the user
+ * lands back on the home page. Other devices keep their sessions — that's
+ * the modern default ("sign out of this device").
+ */
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/");
 }
 
 /**
- * Same-origin relative paths only — guards against open-redirect.
- * Default destination is /account; staff get bumped into /admin/dashboard
- * by the admin layout if they have the role.
+ * Sign out everywhere: revokes every refresh token associated with this
+ * user across all devices. Use sparingly — handy for "account stolen,
+ * kick everyone out" or "I forgot to log out on a public computer".
  */
-function safeNext(next: string | undefined): string {
-  if (!next) return "/account";
-  if (!next.startsWith("/") || next.startsWith("//")) return "/account";
-  return next;
+export async function signOutEverywhere(): Promise<void> {
+  const supabase = await createClient();
+  await supabase.auth.signOut({ scope: "global" });
+  redirect("/");
 }
+

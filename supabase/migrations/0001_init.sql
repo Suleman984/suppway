@@ -50,7 +50,7 @@ create trigger trg_on_auth_user_created
 -- The singleton is enforced by a unique check on `singleton = true`.
 -- -----------------------------------------------------------------------------
 create table public.store_settings (
-  id                uuid primary key default uuid_generate_v4(),
+  id                uuid primary key default gen_random_uuid(),
   singleton         boolean not null default true,
   name              text not null default 'Iron Forge',
   tagline           text default 'Fuel your strongest self',
