@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { gsap } from "gsap";
 import { Menu, X, ShoppingBag } from "lucide-react";
 import { BrandParticles } from "./brand-particles";
 import { ParticleText } from "./particle-text";
@@ -35,16 +34,6 @@ export function SiteNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    if (!navRef.current) return;
-    gsap.from(navRef.current, {
-      y: -32,
-      opacity: 0,
-      duration: 0.6,
-      ease: "power3.out",
-    });
-  }, []);
-
   // Lock body scroll when mobile menu open
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -57,7 +46,7 @@ export function SiteNav() {
     <>
     <header
       ref={navRef}
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+      className={`fixed inset-x-0 top-0 z-50 transition-[background-color,backdrop-filter,border-color] duration-300 ease-out ${
         scrolled
           ? "border-b border-white/10 bg-black/80 backdrop-blur-xl"
           : "bg-gradient-to-b from-black/40 to-transparent"
