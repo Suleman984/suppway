@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Customer-side read services for the /account dashboard. Every query runs
@@ -53,6 +54,20 @@ export async function getAccountSnapshot(): Promise<AccountSnapshot | null> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
+
+  // Claim any guest customer row that was created at checkout with this
+  // user's (now-verified) email. Supabase only hands us a session once the
+  // email has been confirmed via OTP/OAuth, so matching on user.email is
+  // safe — the customer row's email belongs to this account. Idempotent:
+  // once user_id is set the WHERE clause stops matching.
+  if (user.email) {
+    const admin = createAdminClient();
+    await admin
+      .from("customers")
+      .update({ user_id: user.id })
+      .eq("email", user.email.toLowerCase())
+      .is("user_id", null);
+  }
 
   // Profile basics + customer aggregate
   const [{ data: profileRow }, { data: customerRow }] = await Promise.all([

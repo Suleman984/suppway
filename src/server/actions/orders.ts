@@ -67,6 +67,48 @@ function pointsForSubtotal(subtotalCents: number) {
   return Math.floor(subtotalCents * POINTS_PER_CENT);
 }
 
+/**
+ * Atomically claim an unconsumed, non-expired verification row for the
+ * given email. Mirrors the verify action's check but also marks the row
+ * consumed so it can't gate a second order.
+ *
+ * Note: we don't take the OTP code here — the user already entered it on
+ * verify. Once consumed_at is null and the row hasn't expired, we treat
+ * the email as proven and burn the row.
+ */
+async function consumeCheckoutVerification(
+  email: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+  const { data: row } = await admin
+    .from("checkout_verifications")
+    .select("id, expires_at, consumed_at")
+    .eq("email", email)
+    .is("consumed_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!row) {
+    return { ok: false, error: "Please verify your email before placing the order." };
+  }
+  if (new Date(row.expires_at as string).getTime() < Date.now()) {
+    return { ok: false, error: "Email verification expired. Verify again." };
+  }
+  const nowIso = new Date().toISOString();
+  // Conditional update so two concurrent placeOrder calls can't both win.
+  const { data: claimed, error: claimErr } = await admin
+    .from("checkout_verifications")
+    .update({ consumed_at: nowIso })
+    .eq("id", row.id as string)
+    .is("consumed_at", null)
+    .select("id")
+    .maybeSingle();
+  if (claimErr || !claimed) {
+    return { ok: false, error: "Verification already used. Verify again." };
+  }
+  return { ok: true };
+}
+
 /** Order number: SW-YYMMDD-XXXXXX (six random alphanums). */
 function newOrderNumber() {
   const now = new Date();
@@ -116,8 +158,22 @@ export async function placeOrder(
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Find or create customer (by email).
   const admin = createAdminClient();
+
+  // Email ownership gate. A logged-in user submitting their own auth email
+  // is already proven (Supabase verified it at signup). Everyone else —
+  // guests, and logged-in users submitting a different email — must have
+  // a valid OTP verification row. Consumed atomically here so the same row
+  // can't back two orders.
+  const email = parsed.data.email.toLowerCase();
+  const isOwnAuthEmail =
+    !!user && (user.email ?? "").toLowerCase() === email;
+  if (!isOwnAuthEmail) {
+    const gate = await consumeCheckoutVerification(email);
+    if (!gate.ok) return { ok: false, error: gate.error };
+  }
+
+  // Find or create customer (by email).
   const { data: existingCust } = await admin
     .from("customers")
     .select("id, total_spent_cents, orders_count")

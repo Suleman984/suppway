@@ -12,6 +12,10 @@ import {
 import { useCartStore } from "@/stores/cart-store";
 import { recalculateCart } from "@/server/actions/cart";
 import { placeOrder } from "@/server/actions/orders";
+import {
+  sendCheckoutOtp,
+  verifyCheckoutOtp,
+} from "@/server/actions/checkout-otp";
 import type { PricedCart } from "@/server/services/pricing";
 
 const fmt = (cents: number) => `Rs. ${(cents / 100).toLocaleString("en-PK")}`;
@@ -35,7 +39,12 @@ interface ShippingForm {
   postal: string;
 }
 
-export function CheckoutPageClient() {
+interface CheckoutPageClientProps {
+  /** Email of the logged-in user, if any. Lowercased. */
+  signedInEmail: string | null;
+}
+
+export function CheckoutPageClient({ signedInEmail }: CheckoutPageClientProps) {
   const router = useRouter();
   const items = useCartStore((s) => s.items);
   const clear = useCartStore((s) => s.clear);
@@ -49,7 +58,7 @@ export function CheckoutPageClient() {
   const [submitting, startSubmit] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<ShippingForm>({
-    email: "",
+    email: signedInEmail ?? "",
     phone: "",
     firstName: "",
     lastName: "",
@@ -57,6 +66,24 @@ export function CheckoutPageClient() {
     city: "Lahore",
     postal: "54000",
   });
+
+  // OTP gate state. We only require OTP when the submitted email isn't the
+  // user's signed-in email — Supabase already verified that one.
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpVerifiedFor, setOtpVerifiedFor] = useState<string | null>(null);
+  const [otpStatus, setOtpStatus] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSending, startOtpSend] = useTransition();
+  const [otpVerifying, startOtpVerify] = useTransition();
+
+  const emailNormalized = form.email.trim().toLowerCase();
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalized);
+  const isOwnAuthEmail =
+    !!signedInEmail && emailNormalized === signedInEmail;
+  const needsOtp = !isOwnAuthEmail;
+  const otpVerified =
+    !needsOtp || otpVerifiedFor === emailNormalized;
 
   // Re-price whenever cart contents or applied coupon change.
   useEffect(() => {
@@ -82,6 +109,48 @@ export function CheckoutPageClient() {
 
   function patch<K extends keyof ShippingForm>(key: K, v: ShippingForm[K]) {
     setForm((f) => ({ ...f, [key]: v }));
+    if (key === "email") {
+      // Editing the email invalidates any prior OTP — the verified address
+      // and the submitted one must always match.
+      setOtpSent(false);
+      setOtpCode("");
+      setOtpStatus(null);
+      setOtpError(null);
+    }
+  }
+
+  function handleSendOtp() {
+    setOtpError(null);
+    setOtpStatus(null);
+    if (!emailLooksValid) {
+      setOtpError("Enter a valid email first.");
+      return;
+    }
+    startOtpSend(async () => {
+      const result = await sendCheckoutOtp({ email: emailNormalized });
+      if (!result.ok) {
+        setOtpError(result.error);
+        return;
+      }
+      setOtpSent(true);
+      setOtpStatus(result.message ?? "Code sent.");
+    });
+  }
+
+  function handleVerifyOtp() {
+    setOtpError(null);
+    startOtpVerify(async () => {
+      const result = await verifyCheckoutOtp({
+        email: emailNormalized,
+        code: otpCode.trim(),
+      });
+      if (!result.ok) {
+        setOtpError(result.error);
+        return;
+      }
+      setOtpVerifiedFor(emailNormalized);
+      setOtpStatus("Email verified.");
+    });
   }
 
   function applyCoupon() {
@@ -93,6 +162,10 @@ export function CheckoutPageClient() {
     setSubmitError(null);
     if (!priced || priced.lines.length === 0) {
       setSubmitError("Your cart is empty");
+      return;
+    }
+    if (needsOtp && !otpVerified) {
+      setSubmitError("Verify your email before placing the order.");
       return;
     }
     startSubmit(async () => {
@@ -139,6 +212,73 @@ export function CheckoutPageClient() {
             <Field label="Email" type="email" value={form.email} onChange={(v) => patch("email", v)} required placeholder="you@example.com" />
             <Field label="Phone" type="tel" value={form.phone} onChange={(v) => patch("phone", v)} required placeholder="+92 300 1234567" />
           </Grid>
+          {needsOtp && (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
+              {otpVerified ? (
+                <p className="text-sm font-bold text-[#22c55e]">
+                  ✓ Email verified · {emailNormalized}
+                </p>
+              ) : !otpSent ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-white/65">
+                    We&apos;ll send a 6-digit code to confirm this email is
+                    yours before placing the order.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={otpSending || !emailLooksValid}
+                    className="rounded-md border border-white/20 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-white/10 disabled:opacity-50"
+                  >
+                    {otpSending ? "Sending…" : "Send code"}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-white/65">
+                    Enter the 6-digit code we sent to{" "}
+                    <span className="font-bold text-white">{emailNormalized}</span>.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="\d{6}"
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) =>
+                        setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                      }
+                      placeholder="123456"
+                      className="h-10 w-32 rounded-md border border-white/15 bg-black/40 px-3 text-center text-base tracking-[0.4em] text-white placeholder:text-white/30 focus:border-[#ff3b3b] focus:outline-none focus:ring-2 focus:ring-[#ff3b3b]/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyOtp}
+                      disabled={otpVerifying || otpCode.length !== 6}
+                      className="rounded-md bg-[#ff3b3b] px-4 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#ff5252] disabled:opacity-50"
+                    >
+                      {otpVerifying ? "Verifying…" : "Verify"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={otpSending}
+                      className="rounded-md border border-white/20 px-3 text-[11px] font-bold uppercase tracking-wider text-white/80 hover:bg-white/10 disabled:opacity-50"
+                    >
+                      Resend
+                    </button>
+                  </div>
+                </div>
+              )}
+              {otpStatus && !otpError && (
+                <p className="mt-2 text-xs text-white/55">{otpStatus}</p>
+              )}
+              {otpError && (
+                <p className="mt-2 text-xs text-[#ff3b3b]">{otpError}</p>
+              )}
+            </div>
+          )}
         </Section>
 
         <Section title="Shipping address">
@@ -319,7 +459,13 @@ export function CheckoutPageClient() {
 
         <button
           type="submit"
-          disabled={submitting || pricing || !priced || priced.lines.length === 0}
+          disabled={
+            submitting ||
+            pricing ||
+            !priced ||
+            priced.lines.length === 0 ||
+            (needsOtp && !otpVerified)
+          }
           className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#ff3b3b] text-sm font-bold uppercase tracking-wider text-white transition hover:bg-[#ff5252] disabled:opacity-50"
         >
           <Lock className="h-4 w-4" />
