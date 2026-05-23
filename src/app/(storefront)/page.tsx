@@ -7,7 +7,7 @@ import { Hero } from "@/components/storefront/landing/hero";
 import { Marquee } from "@/components/storefront/landing/marquee";
 import { SupplementCategories } from "@/components/storefront/landing/supplement-categories";
 import { WhyUs } from "@/components/storefront/landing/why-us";
-import { Bestsellers } from "@/components/storefront/landing/bestsellers";
+import { BestsellersServer } from "@/components/storefront/landing/bestsellers-server";
 import { Programs } from "@/components/storefront/landing/programs";
 import { Testimonials } from "@/components/storefront/landing/testimonials";
 import { FinalCta } from "@/components/storefront/landing/cta";
@@ -28,7 +28,7 @@ export default function HomePage() {
         <Marquee />
         <SupplementCategories />
         <WhyUs />
-        <Bestsellers />
+        <BestsellersServer />
         <Programs />
         <Testimonials />
         <FinalCta />

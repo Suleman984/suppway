@@ -26,6 +26,19 @@ interface Props {
   initial: VariantRow[];
 }
 
+/** Rs.→cents with safe rounding; returns 0 for blank/garbage input. */
+function rupeesToCents(value: string): number {
+  const n = Number.parseFloat(value);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.round(n * 100);
+}
+
+function centsToRupees(cents: number): string {
+  // Show without trailing zeros for whole values (520 → "520", 520.5 → "5.21")
+  const n = cents / 100;
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
+
 function blankVariant(position: number): VariantRow {
   return {
     title: "Default",
@@ -112,8 +125,8 @@ export function VariantsEditor({ productId, initial }: Props) {
               <th className="px-2 py-2 text-left">SKU</th>
               <th className="px-2 py-2 text-left">Option 1</th>
               <th className="px-2 py-2 text-left">Option 2</th>
-              <th className="px-2 py-2 text-right">Price (cents)</th>
-              <th className="px-2 py-2 text-right">Compare-at</th>
+              <th className="px-2 py-2 text-right">Price (Rs.)</th>
+              <th className="px-2 py-2 text-right">Compare-at (Rs.)</th>
               <th className="px-2 py-2 text-right">Inventory</th>
               <th className="px-2 py-2" />
             </tr>
@@ -158,10 +171,14 @@ export function VariantsEditor({ productId, initial }: Props) {
                   <Input
                     type="number"
                     min={0}
-                    value={row.priceCents}
+                    step={0.01}
+                    value={centsToRupees(row.priceCents)}
                     onChange={(e) =>
-                      update(i, { priceCents: Number(e.target.value) || 0 })
+                      update(i, {
+                        priceCents: rupeesToCents(e.target.value),
+                      })
                     }
+                    placeholder="e.g. 520"
                     className="h-9 text-right tabular-nums"
                     required
                   />
@@ -170,11 +187,16 @@ export function VariantsEditor({ productId, initial }: Props) {
                   <Input
                     type="number"
                     min={0}
-                    value={row.compareAtCents ?? ""}
+                    step={0.01}
+                    value={
+                      row.compareAtCents == null
+                        ? ""
+                        : centsToRupees(row.compareAtCents)
+                    }
                     onChange={(e) =>
                       update(i, {
                         compareAtCents: e.target.value
-                          ? Number(e.target.value)
+                          ? rupeesToCents(e.target.value)
                           : undefined,
                       })
                     }

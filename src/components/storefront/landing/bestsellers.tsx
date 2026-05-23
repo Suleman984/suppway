@@ -5,15 +5,24 @@ import Link from "next/link";
 import { useRef } from "react";
 import { Plus, Star } from "lucide-react";
 import { useReveal } from "@/lib/animations/use-reveal";
-import {
-  formatPKR,
-  getDummyBestsellers,
-  type DummyProduct,
-} from "@/lib/catalog/products";
+import { formatPKR } from "@/lib/catalog/products";
 
-const PRODUCTS: DummyProduct[] = getDummyBestsellers(4);
+export interface BestsellerProduct {
+  slug: string;
+  name: string;
+  categoryLabel: string;
+  flavor: string;
+  price: number;
+  oldPrice?: number;
+  rating: number;
+  badge?: string;
+  accent: string;
+  short: string;
+  imageUrl: string;
+}
 
-export function Bestsellers() {
+export function Bestsellers({ products }: { products: BestsellerProduct[] }) {
+  const PRODUCTS = products;
   const root = useRef<HTMLDivElement>(null);
 
   useReveal(root, [
@@ -100,7 +109,7 @@ export function Bestsellers() {
                 aria-label={p.name}
               >
                 <Image
-                  src={p.images[0]}
+                  src={p.imageUrl}
                   alt={p.name}
                   fill
                   sizes="(min-width:1024px) 25vw, (min-width:640px) 50vw, 100vw"

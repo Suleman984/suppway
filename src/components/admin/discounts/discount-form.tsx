@@ -158,23 +158,35 @@ export function DiscountForm({ mode, initial, products, categories }: Props) {
             </Field>
             <Field
               label={
-                state.kind === "percent" ? "Percent (1–100)" : "Amount (cents)"
+                state.kind === "percent" ? "Percent (1–100)" : "Amount (Rs.)"
               }
               hint={
                 state.kind === "fixed"
-                  ? "Enter the amount in the smallest currency unit. Rs. 500 = 50000."
+                  ? "Discount amount in rupees. Decimals allowed."
                   : undefined
               }
               error={fieldErrors.value}
             >
               <Input
                 type="number"
-                min={1}
+                min={state.kind === "percent" ? 1 : 0.01}
+                step={state.kind === "percent" ? 1 : 0.01}
                 max={state.kind === "percent" ? 100 : undefined}
-                value={state.value}
-                onChange={(e) =>
-                  patch("value", Math.max(1, Number(e.target.value) || 1))
+                value={
+                  state.kind === "percent"
+                    ? state.value
+                    : (state.value / 100).toString()
                 }
+                onChange={(e) => {
+                  const raw = Number(e.target.value);
+                  if (!Number.isFinite(raw)) return;
+                  patch(
+                    "value",
+                    state.kind === "percent"
+                      ? Math.max(1, Math.round(raw))
+                      : Math.max(1, Math.round(raw * 100)),
+                  );
+                }}
                 required
               />
             </Field>
@@ -245,17 +257,24 @@ export function DiscountForm({ mode, initial, products, categories }: Props) {
         <Section title="Limits">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Minimum subtotal (cents)"
+              label="Minimum subtotal (Rs.)"
               hint="Optional. Cart must be at least this much."
             >
               <Input
                 type="number"
                 min={0}
-                value={state.minSubtotalCents ?? ""}
+                step={0.01}
+                value={
+                  state.minSubtotalCents == null
+                    ? ""
+                    : (state.minSubtotalCents / 100).toString()
+                }
                 onChange={(e) =>
                   patch(
                     "minSubtotalCents",
-                    e.target.value ? Number(e.target.value) : null,
+                    e.target.value
+                      ? Math.round(Number(e.target.value) * 100)
+                      : null,
                   )
                 }
                 placeholder="—"

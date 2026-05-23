@@ -1,11 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { CreditCard, Smartphone, Wallet, Lock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import {
+  CreditCard,
+  Lock,
+  Smartphone,
+  TagIcon,
+  Wallet,
+} from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
+import { recalculateCart } from "@/server/actions/cart";
+import { placeOrder } from "@/server/actions/orders";
+import type { PricedCart } from "@/server/services/pricing";
 
-const fmt = (n: number) => `Rs. ${n.toLocaleString("en-PK")}`;
-const FREE_SHIPPING_THRESHOLD = 5000;
+const fmt = (cents: number) => `Rs. ${(cents / 100).toLocaleString("en-PK")}`;
 
 type Method = "card" | "jazzcash" | "easypaisa" | "cod";
 
@@ -16,18 +25,101 @@ const METHODS: { id: Method; label: string; sub: string; icon: typeof CreditCard
   { id: "cod", label: "Cash on delivery", sub: "Pay the rider on arrival", icon: Wallet },
 ];
 
+interface ShippingForm {
+  email: string;
+  phone: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  city: string;
+  postal: string;
+}
+
 export function CheckoutPageClient() {
+  const router = useRouter();
   const items = useCartStore((s) => s.items);
-  const [method, setMethod] = useState<Method>("card");
-  const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
+  const clear = useCartStore((s) => s.clear);
 
-  const subtotal = items.reduce((s, it) => s + it.qty * it.price, 0);
-  const shippingFree = subtotal >= FREE_SHIPPING_THRESHOLD;
-  const shipping = shippingFree ? 0 : 350;
-  const total = subtotal + shipping;
+  const [method, setMethod] = useState<Method>("cod");
+  const [coupon, setCoupon] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [priced, setPriced] = useState<PricedCart | null>(null);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+  const [pricing, startPricing] = useTransition();
+  const [submitting, startSubmit] = useTransition();
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [form, setForm] = useState<ShippingForm>({
+    email: "",
+    phone: "",
+    firstName: "",
+    lastName: "",
+    address: "",
+    city: "Lahore",
+    postal: "54000",
+  });
 
-  if (items.length === 0 && !done) {
+  // Re-price whenever cart contents or applied coupon change.
+  useEffect(() => {
+    if (items.length === 0) {
+      setPriced(null);
+      return;
+    }
+    startPricing(async () => {
+      const payload = {
+        items: items.map((i) => ({ variantId: i.id, qty: i.qty })),
+        couponCode: appliedCoupon,
+      };
+      const result = await recalculateCart(payload);
+      if (!result.ok) {
+        setPricingError(result.error);
+        setPriced(null);
+        return;
+      }
+      setPricingError(null);
+      setPriced(result.cart);
+    });
+  }, [items, appliedCoupon]);
+
+  function patch<K extends keyof ShippingForm>(key: K, v: ShippingForm[K]) {
+    setForm((f) => ({ ...f, [key]: v }));
+  }
+
+  function applyCoupon() {
+    setAppliedCoupon(coupon.trim().toUpperCase() || null);
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSubmitError(null);
+    if (!priced || priced.lines.length === 0) {
+      setSubmitError("Your cart is empty");
+      return;
+    }
+    startSubmit(async () => {
+      const result = await placeOrder({
+        email: form.email,
+        paymentMethod: method,
+        couponCode: appliedCoupon,
+        shipping: {
+          firstName: form.firstName,
+          lastName: form.lastName,
+          address: form.address,
+          city: form.city,
+          postal: form.postal,
+          phone: form.phone,
+        },
+        items: items.map((i) => ({ variantId: i.id, qty: i.qty })),
+      });
+      if (!result.ok) {
+        setSubmitError(result.error);
+        return;
+      }
+      clear();
+      router.push(`/order/${result.data!.orderNumber}`);
+    });
+  }
+
+  if (items.length === 0) {
     return (
       <p className="rounded-3xl border border-white/10 bg-white/[0.02] p-10 text-center text-white/65">
         Your cart is empty —{" "}
@@ -39,46 +131,23 @@ export function CheckoutPageClient() {
     );
   }
 
-  if (done) {
-    return (
-      <div className="rounded-3xl border border-[#22c55e]/30 bg-[#22c55e]/5 p-10 text-center">
-        <p className="text-3xl font-black uppercase tracking-tight text-white">
-          Order placed ✓
-        </p>
-        <p className="mt-3 text-white/65">
-          (Demo only — wire this to your payment provider to charge for real.)
-        </p>
-      </div>
-    );
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      setDone(true);
-      useCartStore.setState({ items: [] });
-    }, 900);
-  }
-
   return (
     <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
       <div className="space-y-8">
         <Section title="Contact">
           <Grid>
-            <Field label="Email" type="email" name="email" required placeholder="you@example.com" />
-            <Field label="Phone" type="tel" name="phone" required placeholder="+92 300 1234567" />
+            <Field label="Email" type="email" value={form.email} onChange={(v) => patch("email", v)} required placeholder="you@example.com" />
+            <Field label="Phone" type="tel" value={form.phone} onChange={(v) => patch("phone", v)} required placeholder="+92 300 1234567" />
           </Grid>
         </Section>
 
         <Section title="Shipping address">
           <Grid>
-            <Field label="First name" name="first_name" required />
-            <Field label="Last name" name="last_name" required />
-            <Field label="Address" name="address" required className="sm:col-span-2" />
-            <Field label="City" name="city" required defaultValue="Lahore" />
-            <Field label="Postal code" name="postal" required defaultValue="54000" />
+            <Field label="First name" value={form.firstName} onChange={(v) => patch("firstName", v)} required />
+            <Field label="Last name" value={form.lastName} onChange={(v) => patch("lastName", v)} required />
+            <Field label="Address" value={form.address} onChange={(v) => patch("address", v)} required className="sm:col-span-2" />
+            <Field label="City" value={form.city} onChange={(v) => patch("city", v)} required />
+            <Field label="Postal code" value={form.postal} onChange={(v) => patch("postal", v)} required />
           </Grid>
         </Section>
 
@@ -121,12 +190,8 @@ export function CheckoutPageClient() {
           </div>
 
           {method === "card" && (
-            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-              <Grid>
-                <Field label="Card number" name="cc_number" placeholder="4242 4242 4242 4242" className="sm:col-span-2" />
-                <Field label="Expiry" name="cc_exp" placeholder="MM / YY" />
-                <Field label="CVC" name="cc_cvc" placeholder="123" />
-              </Grid>
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-xs text-white/55">
+              Card capture not wired in this build — pick Cash on Delivery to test the full order flow.
             </div>
           )}
         </Section>
@@ -136,31 +201,89 @@ export function CheckoutPageClient() {
         <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/55">
           Order summary
         </h2>
+
         <ul className="divide-y divide-white/5">
-          {items.map((it) => (
-            <li key={it.id} className="flex items-center justify-between gap-3 py-3">
+          {(priced?.lines ?? items.map((i) => ({
+            variantId: i.id,
+            productTitle: i.name,
+            variantTitle: i.flavor,
+            qty: i.qty,
+            unitPriceCents: i.price * 100,
+            lineDiscountCents: 0,
+            lineTotalCents: i.price * 100 * i.qty,
+          }))).map((l) => (
+            <li
+              key={l.variantId}
+              className="flex items-center justify-between gap-3 py-3"
+            >
               <div className="min-w-0">
                 <p className="truncate text-sm font-bold text-white">
-                  {it.name}{" "}
-                  <span className="font-normal text-white/45">× {it.qty}</span>
+                  {l.productTitle}{" "}
+                  <span className="font-normal text-white/45">× {l.qty}</span>
                 </p>
-                <p className="truncate text-xs text-white/55">{it.flavor}</p>
+                <p className="truncate text-xs text-white/55">{l.variantTitle}</p>
               </div>
               <span className="text-sm tabular-nums text-white">
-                {fmt(it.qty * it.price)}
+                {fmt(l.lineTotalCents)}
               </span>
             </li>
           ))}
         </ul>
+
+        {/* Coupon input — NOT a <form>, because we're already inside the
+            outer checkout <form> and nested forms are invalid HTML. */}
+        <div className="flex gap-2 border-t border-white/10 pt-4">
+          <div className="relative flex-1">
+            <TagIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40" />
+            <input
+              type="text"
+              value={coupon}
+              onChange={(e) => setCoupon(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  // Prevent the keystroke from bubbling up to the outer
+                  // form, which would submit the order prematurely.
+                  e.preventDefault();
+                  applyCoupon();
+                }
+              }}
+              placeholder="Coupon code"
+              className="h-10 w-full rounded-md border border-white/15 bg-black/40 pl-9 pr-3 text-sm text-white placeholder:text-white/35"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={applyCoupon}
+            disabled={pricing}
+            className="rounded-md border border-white/20 px-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-white/10 disabled:opacity-50"
+          >
+            Apply
+          </button>
+        </div>
+        {priced?.couponError && (
+          <p className="text-xs text-[#ff3b3b]">{priced.couponError}</p>
+        )}
+        {appliedCoupon && !priced?.couponError && priced && (
+          <p className="text-xs text-[#22c55e]">
+            Coupon <span className="font-bold">{appliedCoupon}</span> applied.
+          </p>
+        )}
+
         <dl className="space-y-2 border-t border-white/10 pt-4 text-sm text-white/70">
           <div className="flex justify-between">
             <dt>Subtotal</dt>
-            <dd className="tabular-nums">{fmt(subtotal)}</dd>
+            <dd className="tabular-nums">{fmt(priced?.subtotalCents ?? 0)}</dd>
           </div>
+          {priced && priced.discountCents > 0 && (
+            <div className="flex justify-between text-[#22c55e]">
+              <dt>Discount</dt>
+              <dd className="tabular-nums">− {fmt(priced.discountCents)}</dd>
+            </div>
+          )}
           <div className="flex justify-between">
             <dt>Shipping</dt>
-            <dd className={shippingFree ? "text-[#22c55e]" : "tabular-nums"}>
-              {shippingFree ? "Free" : fmt(shipping)}
+            <dd className={priced && priced.shippingCents === 0 ? "text-[#22c55e]" : "tabular-nums"}>
+              {priced && priced.shippingCents === 0 ? "Free" : fmt(priced?.shippingCents ?? 0)}
             </dd>
           </div>
         </dl>
@@ -168,15 +291,43 @@ export function CheckoutPageClient() {
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/55">
             Total
           </span>
-          <span className="text-2xl font-black tabular-nums text-white">{fmt(total)}</span>
+          <span className="text-2xl font-black tabular-nums text-white">
+            {fmt(priced?.totalCents ?? 0)}
+          </span>
         </div>
+
+        {pricingError && (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-[#ff3b3b]">
+            {pricingError}
+          </p>
+        )}
+        {priced && priced.invalidLines.length > 0 && (
+          <p className="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+            {priced.invalidLines.length === 1
+              ? "1 item in your cart is no longer available."
+              : `${priced.invalidLines.length} items in your cart are no longer available.`}
+          </p>
+        )}
+        {submitError && (
+          <p
+            role="alert"
+            className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-[#ff3b3b]"
+          >
+            {submitError}
+          </p>
+        )}
+
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || pricing || !priced || priced.lines.length === 0}
           className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#ff3b3b] text-sm font-bold uppercase tracking-wider text-white transition hover:bg-[#ff5252] disabled:opacity-50"
         >
           <Lock className="h-4 w-4" />
-          {submitting ? "Processing…" : `Pay ${fmt(total)}`}
+          {submitting
+            ? "Placing order…"
+            : pricing
+              ? "Pricing…"
+              : `Place order · ${fmt(priced?.totalCents ?? 0)}`}
         </button>
         <p className="text-center text-[11px] text-white/45">
           Secure checkout · 256-bit SSL · PCI-DSS
@@ -204,8 +355,15 @@ function Grid({ children }: { children: React.ReactNode }) {
 function Field({
   label,
   className = "",
+  onChange,
+  value,
   ...input
-}: { label: string; className?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+}: {
+  label: string;
+  className?: string;
+  value: string;
+  onChange: (v: string) => void;
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value">) {
   return (
     <label className={`flex flex-col gap-1.5 ${className}`}>
       <span className="text-[11px] font-bold uppercase tracking-widest text-white/55">
@@ -213,6 +371,8 @@ function Field({
       </span>
       <input
         {...input}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         className="h-11 rounded-xl border border-white/15 bg-black/40 px-3 text-sm text-white placeholder:text-white/30 focus:border-[#ff3b3b] focus:outline-none focus:ring-2 focus:ring-[#ff3b3b]/30"
       />
     </label>

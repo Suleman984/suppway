@@ -10,12 +10,15 @@ interface Props {
   priority?: boolean;
   /** Sizes attr for next/image. Default tuned for 1/2/3/4-col grids. */
   sizes?: string;
+  /** Real variant UUID for Quick-Add. Null = link to PDP instead. */
+  quickAddVariantId?: string | null;
 }
 
 export function ProductCard({
   product: p,
   priority = false,
   sizes = "(min-width:1024px) 25vw, (min-width:640px) 50vw, 100vw",
+  quickAddVariantId = null,
 }: Props) {
   return (
     <article className="group relative isolate flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] transition-[transform,border-color] duration-500 hover:-translate-y-1 hover:border-white/30">
@@ -85,11 +88,13 @@ export function ProductCard({
 
         <QuickAddButton
           item={{
-            id: p.slug,
+            variantId: quickAddVariantId,
+            productSlug: p.slug,
             name: p.name,
             flavor: p.flavor,
             price: p.price,
             accent: p.accent,
+            imageUrl: p.images[0],
           }}
         />
       </div>

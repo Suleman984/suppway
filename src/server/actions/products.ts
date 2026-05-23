@@ -250,30 +250,44 @@ export async function upsertVariants(input: unknown): Promise<ActionResult> {
     if (error) return { ok: false, error: error.message };
   }
 
-  const rows = parsed.data.variants.map((v, i) => ({
-    id: v.id,
-    product_id: productId,
-    sku: v.sku || null,
-    title: v.title,
-    option1: v.option1 || null,
-    option2: v.option2 || null,
-    option3: v.option3 || null,
-    price_cents: v.priceCents,
-    compare_at_cents: v.compareAtCents ?? null,
-    currency: v.currency,
-    weight_grams: v.weightGrams ?? null,
-    requires_shipping: v.requiresShipping,
-    taxable: v.taxable,
-    inventory_qty: v.inventoryQty,
-    inventory_policy: v.inventoryPolicy,
-    position: v.position ?? i,
-  }));
+  // Split into updates (have an id) and inserts (no id). Mixing them in a
+  // single upsert sends `id: null` for new rows and Postgres rejects on
+  // the NOT NULL PK constraint. Inserting without `id` lets the column
+  // default (`gen_random_uuid()`) fill it in.
+  const toUpdate: Array<Record<string, unknown>> = [];
+  const toInsert: Array<Record<string, unknown>> = [];
+  parsed.data.variants.forEach((v, i) => {
+    const base = {
+      product_id: productId,
+      sku: v.sku || null,
+      title: v.title,
+      option1: v.option1 || null,
+      option2: v.option2 || null,
+      option3: v.option3 || null,
+      price_cents: v.priceCents,
+      compare_at_cents: v.compareAtCents ?? null,
+      currency: v.currency,
+      weight_grams: v.weightGrams ?? null,
+      requires_shipping: v.requiresShipping,
+      taxable: v.taxable,
+      inventory_qty: v.inventoryQty,
+      inventory_policy: v.inventoryPolicy,
+      position: v.position ?? i,
+    };
+    if (v.id) toUpdate.push({ id: v.id, ...base });
+    else toInsert.push(base);
+  });
 
-  const { error } = await supabase
-    .from("product_variants")
-    .upsert(rows, { onConflict: "id" });
-  if (error) return { ok: false, error: error.message };
-
+  if (toUpdate.length > 0) {
+    const { error } = await supabase
+      .from("product_variants")
+      .upsert(toUpdate, { onConflict: "id" });
+    if (error) return { ok: false, error: error.message };
+  }
+  if (toInsert.length > 0) {
+    const { error } = await supabase.from("product_variants").insert(toInsert);
+    if (error) return { ok: false, error: error.message };
+  }
   const { data: slugRow } = await supabase
     .from("products")
     .select("slug")

@@ -8,16 +8,13 @@ import { SiteFooter } from "@/components/storefront/landing/site-footer";
 import { ProductCard } from "@/components/storefront/product-card";
 import { ProductDetail } from "@/components/storefront/product-detail";
 import {
-  DUMMY_PRODUCTS,
-  getDummyProductBySlug,
-} from "@/lib/catalog/products";
+  getStorefrontProductBySlug,
+  listStorefrontProducts,
+} from "@/server/services/storefront";
 import { breadcrumbJsonLd, productJsonLd } from "@/lib/seo/jsonLd";
+import type { DummyProduct } from "@/lib/catalog/products";
 
-export const revalidate = 60;
-
-export function generateStaticParams() {
-  return DUMMY_PRODUCTS.map((p) => ({ slug: p.slug }));
-}
+export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -25,7 +22,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const product = getDummyProductBySlug(slug);
+  const product = await getStorefrontProductBySlug(slug);
   if (!product) return { title: "Not found" };
   return {
     title: `${product.name} — ${product.categoryLabel}`,
@@ -33,7 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: product.name,
       description: product.short,
-      images: [{ url: product.images[0] }],
+      images: product.images[0] ? [{ url: product.images[0] }] : undefined,
       type: "website",
     },
   };
@@ -41,12 +38,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProductDetailPage({ params }: Props) {
   const { slug } = await params;
-  const product = getDummyProductBySlug(slug);
+  const product = await getStorefrontProductBySlug(slug);
   if (!product) notFound();
 
-  const related = DUMMY_PRODUCTS.filter(
-    (p) => p.slug !== product.slug && p.kind === product.kind,
-  ).slice(0, 4);
+  // Related = same kind, exclude self, take first 4
+  const { items: related } = await listStorefrontProducts({
+    kind: product.kind,
+    pageSize: 8,
+  });
+  const relatedCards = related
+    .filter((r) => r.slug !== product.slug)
+    .slice(0, 4);
 
   const url = `https://${BRAND.name}.com/product/${product.slug}`;
   const productLd = productJsonLd({
@@ -68,6 +70,38 @@ export default async function ProductDetailPage({ params }: Props) {
     { name: product.name, url },
   ]);
 
+  // Adapt the DB-shaped product to the existing ProductDetail prop shape.
+  const adapted: DummyProduct = {
+    slug: product.slug,
+    name: product.name,
+    kind: product.kind as DummyProduct["kind"],
+    categoryLabel: product.categoryLabel,
+    flavor: product.variants[0]?.title ?? "",
+    price: product.price,
+    oldPrice: product.oldPrice,
+    rating: product.rating,
+    reviews: product.reviews,
+    badge: product.badge as DummyProduct["badge"],
+    accent: product.accent,
+    short: product.short,
+    description: product.description,
+    highlights: product.highlights,
+    ingredients: product.ingredients,
+    macros: product.macros,
+    variants: product.variants.map((v) => ({
+      id: v.id,
+      label: v.title,
+      price: v.priceCents / 100,
+      inStock: v.inStock,
+    })),
+    images:
+      product.images.length > 0
+        ? (product.images as [string, ...string[]])
+        : [
+            "https://images.pexels.com/photos/4046718/pexels-photo-4046718.jpeg?auto=compress&cs=tinysrgb&w=800",
+          ],
+  };
+
   return (
     <>
       <SiteNavServer />
@@ -88,10 +122,10 @@ export default async function ProductDetailPage({ params }: Props) {
         </nav>
 
         <section className="container pb-16">
-          <ProductDetail product={product} />
+          <ProductDetail product={adapted} />
         </section>
 
-        {related.length > 0 && (
+        {relatedCards.length > 0 && (
           <section className="border-t border-white/10 bg-[#080808] py-16">
             <div className="container">
               <div className="flex items-end justify-between">
@@ -107,8 +141,29 @@ export default async function ProductDetailPage({ params }: Props) {
                 </Link>
               </div>
               <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {related.map((p) => (
-                  <ProductCard key={p.slug} product={p} />
+                {relatedCards.map((p) => (
+                  <ProductCard
+                    key={p.slug}
+                    product={{
+                      slug: p.slug,
+                      name: p.name,
+                      kind: p.kind as DummyProduct["kind"],
+                      categoryLabel: p.categoryLabel,
+                      flavor: p.flavor,
+                      price: p.price,
+                      oldPrice: p.oldPrice,
+                      rating: p.rating,
+                      reviews: p.reviews,
+                      badge: p.badge as DummyProduct["badge"],
+                      accent: p.accent,
+                      short: p.short,
+                      description: p.short,
+                      highlights: [],
+                      images: [p.imageUrl],
+                      variants: [],
+                    }}
+                    quickAddVariantId={p.quickAddVariantId}
+                  />
                 ))}
               </div>
             </div>

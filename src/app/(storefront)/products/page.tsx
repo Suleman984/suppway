@@ -3,9 +3,13 @@ import Link from "next/link";
 import { SiteNavServer } from "@/components/storefront/landing/site-nav-server";
 import { SiteFooter } from "@/components/storefront/landing/site-footer";
 import { ProductCard } from "@/components/storefront/product-card";
-import { DUMMY_PRODUCTS, type ProductKind } from "@/lib/catalog/products";
+import {
+  listStorefrontProducts,
+  type StorefrontProductCard,
+} from "@/server/services/storefront";
+import type { DummyProduct } from "@/lib/catalog/products";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Shop all products",
@@ -13,36 +17,36 @@ export const metadata: Metadata = {
     "Pharma-grade supplements, performance apparel, equipment and accessories — all in one place.",
 };
 
-const FILTERS: { key: ProductKind | "all"; label: string }[] = [
+const FILTERS = [
   { key: "all", label: "All" },
   { key: "supplement", label: "Supplements" },
   { key: "apparel", label: "Apparel" },
   { key: "equipment", label: "Equipment" },
   { key: "accessory", label: "Accessories" },
-];
+] as const;
+
+type SortKey = "popular" | "rating" | "price-asc" | "price-desc";
+type FilterKey = (typeof FILTERS)[number]["key"];
 
 interface Props {
   searchParams: Promise<{ kind?: string; cat?: string; sort?: string }>;
 }
 
 export default async function ProductsListPage({ searchParams }: Props) {
-  const { kind, cat, sort } = await searchParams;
-  const activeKind = (FILTERS.find((f) => f.key === kind)?.key ?? "all") as
-    | ProductKind
-    | "all";
+  const sp = await searchParams;
+  const activeKind = (FILTERS.find((f) => f.key === sp.kind)?.key ?? "all") as FilterKey;
+  const sort = (
+    ["popular", "rating", "price-asc", "price-desc"] as const
+  ).includes(sp.sort as SortKey)
+    ? (sp.sort as SortKey)
+    : "popular";
 
-  let items =
-    activeKind === "all"
-      ? DUMMY_PRODUCTS
-      : DUMMY_PRODUCTS.filter((p) => p.kind === activeKind);
-  if (cat) items = items.filter((p) => p.category === cat);
-
-  if (sort === "price-asc") items = [...items].sort((a, b) => a.price - b.price);
-  else if (sort === "price-desc")
-    items = [...items].sort((a, b) => b.price - a.price);
-  else if (sort === "rating")
-    items = [...items].sort((a, b) => b.rating - a.rating);
-  else items = [...items].sort((a, b) => b.reviews - a.reviews);
+  const { items, total, fallback } = await listStorefrontProducts({
+    kind: activeKind === "all" ? undefined : activeKind,
+    cat: sp.cat,
+    sort,
+    pageSize: 60,
+  });
 
   return (
     <>
@@ -57,9 +61,14 @@ export default async function ProductsListPage({ searchParams }: Props) {
               Shop all products
             </h1>
             <p className="mt-4 max-w-2xl text-base text-white/65">
-              {items.length} {items.length === 1 ? "item" : "items"} ·
+              {total} {total === 1 ? "item" : "items"} ·
               fully-dosed supplements, heavyweight apparel and gym-tested gear.
             </p>
+            {fallback && (
+              <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-300">
+                Showing the bundled demo catalog — publish products in /admin/products to see live data
+              </p>
+            )}
           </div>
         </header>
 
@@ -88,7 +97,6 @@ export default async function ProductsListPage({ searchParams }: Props) {
                 );
               })}
             </nav>
-
             <SortLinks activeKind={activeKind} sort={sort} />
           </div>
 
@@ -97,7 +105,12 @@ export default async function ProductsListPage({ searchParams }: Props) {
           ) : (
             <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {items.map((p, i) => (
-                <ProductCard key={p.slug} product={p} priority={i < 4} />
+                <ProductCard
+                  key={p.slug}
+                  product={cardToProductCardProp(p)}
+                  priority={i < 4}
+                  quickAddVariantId={p.quickAddVariantId}
+                />
               ))}
             </div>
           )}
@@ -112,11 +125,11 @@ function SortLinks({
   activeKind,
   sort,
 }: {
-  activeKind: ProductKind | "all";
-  sort?: string;
+  activeKind: FilterKey;
+  sort: SortKey;
 }) {
   const base = activeKind === "all" ? "" : `kind=${activeKind}&`;
-  const options = [
+  const options: { key: SortKey; label: string }[] = [
     { key: "popular", label: "Popular" },
     { key: "rating", label: "Top rated" },
     { key: "price-asc", label: "Price ↑" },
@@ -126,7 +139,7 @@ function SortLinks({
     <div className="flex items-center gap-2 text-xs">
       <span className="font-bold uppercase tracking-wider text-white/45">Sort</span>
       {options.map((o) => {
-        const active = (sort ?? "popular") === o.key;
+        const active = sort === o.key;
         return (
           <Link
             key={o.key}
@@ -142,4 +155,29 @@ function SortLinks({
       })}
     </div>
   );
+}
+
+/**
+ * The existing ProductCard expects a DummyProduct shape. Map our normalized
+ * storefront card to that shape so we don't have to rewrite the card UI.
+ */
+function cardToProductCardProp(c: StorefrontProductCard): DummyProduct {
+  return {
+    slug: c.slug,
+    name: c.name,
+    kind: c.kind as DummyProduct["kind"],
+    categoryLabel: c.categoryLabel,
+    flavor: c.flavor,
+    price: c.price,
+    oldPrice: c.oldPrice,
+    rating: c.rating,
+    reviews: c.reviews,
+    badge: c.badge as DummyProduct["badge"],
+    accent: c.accent,
+    short: c.short,
+    description: c.short,
+    highlights: [],
+    images: [c.imageUrl],
+    variants: [],
+  };
 }

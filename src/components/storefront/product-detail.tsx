@@ -23,11 +23,15 @@ export function ProductDetail({ product: p }: { product: DummyProduct }) {
   function handleAdd() {
     if (!variant || !inStock) return;
     add({
-      id: `${p.slug}__${variant.id}`,
+      // Use the variant id as the line key — the server pricing engine
+      // looks this up directly in product_variants.
+      id: variant.id,
+      productSlug: p.slug,
       name: p.name,
       flavor: variant.label,
       price,
       accent: p.accent,
+      imageUrl: p.images[0],
       qty,
     });
     openCart();

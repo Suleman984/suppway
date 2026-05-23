@@ -444,6 +444,7 @@ function RewardCardsLayer({ prizes, onClose, source }: LayerProps) {
     const discountedPrice = Math.round(p.originalPrice * (1 - p.discount / 100));
     add({
       id: p.id,
+      productSlug: p.id,
       name: p.name,
       flavor: p.flavor,
       qty: 1,
