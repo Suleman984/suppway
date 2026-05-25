@@ -18,6 +18,9 @@ export const PERMISSIONS = {
   ORDERS_CANCEL: "orders.cancel",
   ORDERS_EXPORT: "orders.export",
 
+  RETURNS_VIEW: "returns.view",
+  RETURNS_DECIDE: "returns.decide",
+
   CUSTOMERS_VIEW: "customers.view",
   CUSTOMERS_UPDATE: "customers.update",
   CUSTOMERS_DELETE: "customers.delete",

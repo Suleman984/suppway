@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
 import { getStoreSettings } from "@/lib/store/settings";

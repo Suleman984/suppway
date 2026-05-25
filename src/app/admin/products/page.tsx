@@ -1,11 +1,12 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import Link from "@/lib/store/link";
 import { Pencil, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 // Button is used in the filter form below.
 import { hasPermission } from "@/lib/rbac/check";
 import { PERMISSIONS } from "@/config/permissions";
+import { AccessDenied } from "@/components/admin/access-denied";
+import { getStoreContext } from "@/lib/store/context";
 import {
   formatCents,
   listAdminProducts,
@@ -38,7 +39,16 @@ interface PageProps {
 }
 
 export default async function AdminProductsPage({ searchParams }: PageProps) {
-  if (!(await hasPermission(PERMISSIONS.PRODUCTS_VIEW))) redirect("/admin/dashboard");
+  if (!(await hasPermission(PERMISSIONS.PRODUCTS_VIEW))) {
+    const { staff } = await getStoreContext();
+    return (
+      <AccessDenied
+        resource="Products"
+        permission={PERMISSIONS.PRODUCTS_VIEW}
+        roleName={staff?.roleName}
+      />
+    );
+  }
 
   const sp = await searchParams;
   const params: ListAdminProductsParams = {

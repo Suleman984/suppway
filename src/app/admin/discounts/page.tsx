@@ -1,10 +1,11 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import Link from "@/lib/store/link";
 import { Pencil, Plus } from "lucide-react";
 import { hasPermission } from "@/lib/rbac/check";
 import { PERMISSIONS } from "@/config/permissions";
 import { listAdminDiscounts } from "@/server/services/discounts";
 import { DiscountRowActions } from "@/components/admin/discounts/discount-row-actions";
+import { AccessDenied } from "@/components/admin/access-denied";
+import { getStoreContext } from "@/lib/store/context";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Discounts" };
@@ -26,7 +27,14 @@ function formatScope(d: {
 
 export default async function AdminDiscountsPage() {
   if (!(await hasPermission(PERMISSIONS.DISCOUNTS_VIEW))) {
-    redirect("/admin/dashboard");
+    const { staff } = await getStoreContext();
+    return (
+      <AccessDenied
+        resource="Discounts"
+        permission={PERMISSIONS.DISCOUNTS_VIEW}
+        roleName={staff?.roleName}
+      />
+    );
   }
   const canCreate = await hasPermission(PERMISSIONS.DISCOUNTS_CREATE);
   const rows = await listAdminDiscounts();

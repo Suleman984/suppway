@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { storeLink } from "@/lib/store/active";
 import { publicEnv } from "@/config/env";
 import {
   forgotPasswordSchema,
@@ -127,7 +128,7 @@ export async function resetPassword(input: unknown): Promise<AuthActionResult> {
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) return { ok: false, error: error.message };
 
-  redirect("/account");
+  redirect(await storeLink("/account"));
 }
 
 /**

@@ -1,18 +1,14 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { storeLink } from "@/lib/store/active";
 
 /**
- * Decide where the user lands after a successful authentication.
+ * Where to land a user after a successful auth.
  *
- *   - active staff  → /admin/dashboard
- *   - everyone else → /account
+ *   - has staff row in some store → /s/{slug}/admin/dashboard
+ *   - otherwise → /account (or the active store's account page)
  *
- * If the caller supplied a `next` query param we honour it, but only when
- * it's a same-origin relative path (guards against open-redirect).
- *
- * Shared by server actions (`signInWithPassword`, `signUpWithPassword`) and
- * the two route handlers (`/auth/confirm`, `/auth/callback`) so the routing
- * rule lives in exactly one place.
+ * `next` (when same-origin) wins over the role-aware default.
  */
 export async function landingPathForCurrentUser(
   supabase: SupabaseClient,
@@ -22,19 +18,38 @@ export async function landingPathForCurrentUser(
     requested && requested.startsWith("/") && !requested.startsWith("//")
       ? requested
       : null;
+  if (allowed) return allowed;
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return allowed ?? "/login";
+  if (!user) return "/login";
 
+  // If we already have a `next` (validated above), it wins. Otherwise we
+  // pick a destination based on whether the user is staff anywhere AND
+  // honour the active store from the URL they signed in on.
+
+  // Find any active staff row across stores. If the user owns multiple
+  // stores we pick the first one; a store-switcher is a future iteration.
   const { data: staff } = await supabase
     .from("staff")
-    .select("status")
+    .select("store_id, store:stores(slug)")
     .eq("user_id", user.id)
     .eq("status", "active")
+    .limit(1)
     .maybeSingle();
 
-  if (allowed) return allowed;
-  return staff ? "/admin/dashboard" : "/account";
+  if (staff) {
+    const storeRaw = staff.store as unknown;
+    const store = (Array.isArray(storeRaw) ? storeRaw[0] : storeRaw) as
+      | { slug: string }
+      | null;
+    const slug = store?.slug ?? "main";
+    return slug === "main"
+      ? "/admin/dashboard"
+      : `/s/${slug}/admin/dashboard`;
+  }
+
+  // Customer: send them to the account page of the store they signed in on.
+  return storeLink("/account");
 }

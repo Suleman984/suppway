@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getActiveStoreId } from "@/lib/store/active";
 
 /**
  * Customer-side read services for the /account dashboard. Every query runs
@@ -55,21 +56,23 @@ export async function getAccountSnapshot(): Promise<AccountSnapshot | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // Claim any guest customer row that was created at checkout with this
-  // user's (now-verified) email. Supabase only hands us a session once the
-  // email has been confirmed via OTP/OAuth, so matching on user.email is
-  // safe — the customer row's email belongs to this account. Idempotent:
-  // once user_id is set the WHERE clause stops matching.
+  const storeId = await getActiveStoreId();
+
+  // Claim any guest customer row that was created at checkout for THIS
+  // store with this user's (now-verified) email. Supabase only hands us a
+  // session once the email has been confirmed, so matching on user.email
+  // is safe. Idempotent: once user_id is set the WHERE clause stops matching.
   if (user.email) {
     const admin = createAdminClient();
     await admin
       .from("customers")
       .update({ user_id: user.id })
+      .eq("store_id", storeId)
       .eq("email", user.email.toLowerCase())
       .is("user_id", null);
   }
 
-  // Profile basics + customer aggregate
+  // Profile basics + customer aggregate (scoped to this store).
   const [{ data: profileRow }, { data: customerRow }] = await Promise.all([
     supabase
       .from("profiles")
@@ -80,10 +83,11 @@ export async function getAccountSnapshot(): Promise<AccountSnapshot | null> {
       .from("customers")
       .select("id, total_spent_cents, orders_count")
       .eq("user_id", user.id)
+      .eq("store_id", storeId)
       .maybeSingle(),
   ]);
 
-  // Points: balance view + last few events
+  // Points: balance view + last few events, scoped to this store.
   const [{ data: balanceRow }, { data: pointsRows }] = await Promise.all([
     supabase
       .from("loyalty_balances")
@@ -94,6 +98,7 @@ export async function getAccountSnapshot(): Promise<AccountSnapshot | null> {
       .from("loyalty_points")
       .select("id, delta, reason, note, created_at, order:orders(order_number)")
       .eq("user_id", user.id)
+      .eq("store_id", storeId)
       .order("created_at", { ascending: false })
       .limit(10),
   ]);
@@ -176,4 +181,100 @@ export async function getAccountSnapshot(): Promise<AccountSnapshot | null> {
 
 export function formatPKR(cents: number) {
   return `Rs. ${(cents / 100).toLocaleString("en-PK", { maximumFractionDigits: 0 })}`;
+}
+
+export interface CustomerOrderItem {
+  id: string;
+  productTitle: string;
+  variantTitle: string | null;
+  quantity: number;
+  priceCents: number;
+  totalCents: number;
+}
+
+export interface CustomerOrderDetail {
+  id: string;
+  orderNumber: string;
+  status: string;
+  fulfillmentStatus: string;
+  email: string;
+  currency: string;
+  subtotalCents: number;
+  discountCents: number;
+  shippingCents: number;
+  taxCents: number;
+  totalCents: number;
+  refundedCents: number;
+  shippingAddress: {
+    firstName?: string;
+    lastName?: string;
+    address?: string;
+    city?: string;
+    postal?: string;
+    phone?: string;
+  } | null;
+  paymentMethod: string | null;
+  placedAt: string;
+  items: CustomerOrderItem[];
+}
+
+/**
+ * Fetch a single order for the signed-in user by order number. Uses the
+ * user's cookied client so RLS guarantees they can only see their own
+ * orders — returns null for any order that doesn't belong to them or
+ * doesn't exist.
+ */
+export async function getCustomerOrderByNumber(
+  orderNumber: string,
+): Promise<CustomerOrderDetail | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const storeId = await getActiveStoreId();
+
+  const { data } = await supabase
+    .from("orders")
+    .select(
+      `id, order_number, status, fulfillment_status, email, currency,
+       subtotal_cents, discount_cents, shipping_cents, tax_cents, total_cents,
+       refunded_cents, shipping_address, placed_at, metadata,
+       order_items(id, product_title, variant_title, quantity, price_cents, total_cents)`,
+    )
+    .eq("store_id", storeId)
+    .eq("order_number", orderNumber)
+    .maybeSingle();
+
+  if (!data) return null;
+  const o = data as Record<string, unknown>;
+  const metadata = (o.metadata as Record<string, unknown> | null) ?? {};
+
+  return {
+    id: o.id as string,
+    orderNumber: o.order_number as string,
+    status: o.status as string,
+    fulfillmentStatus: o.fulfillment_status as string,
+    email: o.email as string,
+    currency: o.currency as string,
+    subtotalCents: o.subtotal_cents as number,
+    discountCents: o.discount_cents as number,
+    shippingCents: o.shipping_cents as number,
+    taxCents: o.tax_cents as number,
+    totalCents: o.total_cents as number,
+    refundedCents: o.refunded_cents as number,
+    shippingAddress:
+      (o.shipping_address as CustomerOrderDetail["shippingAddress"]) ?? null,
+    paymentMethod: (metadata.payment_method as string | null) ?? null,
+    placedAt: o.placed_at as string,
+    items: ((o.order_items as Array<Record<string, unknown>>) ?? []).map((it) => ({
+      id: it.id as string,
+      productTitle: it.product_title as string,
+      variantTitle: (it.variant_title as string | null) ?? null,
+      quantity: it.quantity as number,
+      priceCents: it.price_cents as number,
+      totalCents: it.total_cents as number,
+    })),
+  };
 }

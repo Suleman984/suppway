@@ -16,6 +16,7 @@ import {
   sendCheckoutOtp,
   verifyCheckoutOtp,
 } from "@/server/actions/checkout-otp";
+import { useStoreLink } from "@/lib/store/link";
 import type { PricedCart } from "@/server/services/pricing";
 
 const fmt = (cents: number) => `Rs. ${(cents / 100).toLocaleString("en-PK")}`;
@@ -46,6 +47,7 @@ interface CheckoutPageClientProps {
 
 export function CheckoutPageClient({ signedInEmail }: CheckoutPageClientProps) {
   const router = useRouter();
+  const link = useStoreLink();
   const items = useCartStore((s) => s.items);
   const clear = useCartStore((s) => s.clear);
 
@@ -188,7 +190,7 @@ export function CheckoutPageClient({ signedInEmail }: CheckoutPageClientProps) {
         return;
       }
       clear();
-      router.push(`/order/${result.data!.orderNumber}`);
+      router.push(link(`/order/${result.data!.orderNumber}`));
     });
   }
 

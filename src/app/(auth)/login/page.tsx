@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { LoginForm } from "@/components/auth/LoginForm";

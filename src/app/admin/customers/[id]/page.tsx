@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
+import { storeLink } from "@/lib/store/active";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { hasPermission } from "@/lib/rbac/check";
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function AdminCustomerDetailPage({ params }: PageProps) {
   if (!(await hasPermission(PERMISSIONS.CUSTOMERS_VIEW))) {
-    redirect("/admin/dashboard");
+    redirect(await storeLink("/admin/dashboard"));
   }
   const { id } = await params;
   const customer = await getAdminCustomerById(id);

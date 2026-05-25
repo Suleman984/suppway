@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { useRef } from "react";
 import { Check } from "lucide-react";
 import { useReveal } from "@/lib/animations/use-reveal";

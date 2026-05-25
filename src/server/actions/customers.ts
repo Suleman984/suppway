@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/rbac/check";
 import { PERMISSIONS } from "@/config/permissions";
 import { idSchema } from "@/lib/validation/common";
+import { getActiveStoreId } from "@/lib/store/active";
 
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T; message?: string }
@@ -34,9 +35,11 @@ export async function adjustCustomerPoints(input: unknown): Promise<ActionResult
   }
 
   const admin = createAdminClient();
+  const storeId = await getActiveStoreId();
   const { data: cust } = await admin
     .from("customers")
     .select("user_id")
+    .eq("store_id", storeId)
     .eq("id", parsed.data.customerId)
     .maybeSingle();
   if (!cust || !cust.user_id) {
@@ -48,6 +51,7 @@ export async function adjustCustomerPoints(input: unknown): Promise<ActionResult
   }
 
   const { error } = await admin.from("loyalty_points").insert({
+    store_id: storeId,
     user_id: cust.user_id,
     delta: parsed.data.delta,
     reason: "adjustment",

@@ -1,11 +1,17 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveStore } from "@/lib/store/active";
 
 /**
- * Per-request auth + staff context. Pair with `getStoreSettings()` from
- * settings.ts when a page also needs branding/theme.
+ * Per-request auth + staff context, now scoped to the active store.
+ *
+ * `staff` is non-null only if the signed-in user has an active staff row
+ * **in the active store**. Users who are admin of one store and customers
+ * of another will see `staff: null` on the second store's URLs — which is
+ * exactly what we want for tenant isolation.
  */
+
 export interface StoreContext {
   user: { id: string; email?: string } | null;
   profile: {
@@ -15,19 +21,35 @@ export interface StoreContext {
     avatarUrl: string | null;
   } | null;
   staff: {
+    storeId: string;
     roleId: string;
     roleKey: string;
     roleName: string;
     permissions: string[];
   } | null;
+  activeStore: {
+    id: string;
+    slug: string;
+    name: string;
+    status: string;
+  };
 }
 
 export const getStoreContext = cache(async (): Promise<StoreContext> => {
   const supabase = await createClient();
+  const activeStore = await getActiveStore();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { user: null, profile: null, staff: null };
+
+  const base = {
+    user: null,
+    profile: null,
+    staff: null,
+    activeStore,
+  } as StoreContext;
+
+  if (!user) return base;
 
   const { data: profileRow } = await supabase
     .from("profiles")
@@ -37,18 +59,19 @@ export const getStoreContext = cache(async (): Promise<StoreContext> => {
 
   const profile = profileRow
     ? {
-        id: profileRow.id,
-        email: profileRow.email,
-        fullName: profileRow.full_name,
-        avatarUrl: profileRow.avatar_url,
+        id: profileRow.id as string,
+        email: profileRow.email as string,
+        fullName: (profileRow.full_name as string | null) ?? null,
+        avatarUrl: (profileRow.avatar_url as string | null) ?? null,
       }
     : null;
 
-  // Look up staff + role + permissions in one round-trip
+  // Staff row scoped to the active store only.
   const { data: staffRow } = await supabase
     .from("staff")
     .select("role_id, status, role:roles(id, key, name)")
     .eq("user_id", user.id)
+    .eq("store_id", activeStore.id)
     .eq("status", "active")
     .maybeSingle();
 
@@ -64,12 +87,15 @@ export const getStoreContext = cache(async (): Promise<StoreContext> => {
       | null
       | undefined;
     staff = {
-      roleId: staffRow.role_id,
+      storeId: activeStore.id,
+      roleId: staffRow.role_id as string,
       roleKey: role?.key ?? "",
       roleName: role?.name ?? "",
-      permissions: (perms ?? []).map((p: { permission: string }) => p.permission),
+      permissions: (perms ?? []).map(
+        (p: { permission: string }) => p.permission,
+      ),
     };
   }
 
-  return { user, profile, staff };
+  return { user, profile, staff, activeStore };
 });

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { SiteNavServer } from "@/components/storefront/landing/site-nav-server";
 import { SiteFooter } from "@/components/storefront/landing/site-footer";
 import { ProductCard } from "@/components/storefront/product-card";

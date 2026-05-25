@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import Link from "@/lib/store/link";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +6,8 @@ import { hasPermission } from "@/lib/rbac/check";
 import { PERMISSIONS } from "@/config/permissions";
 import { listAdminCustomers } from "@/server/services/customers";
 import { formatCents } from "@/server/services/orders";
+import { AccessDenied } from "@/components/admin/access-denied";
+import { getStoreContext } from "@/lib/store/context";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Customers" };
@@ -17,7 +18,14 @@ interface Props {
 
 export default async function AdminCustomersPage({ searchParams }: Props) {
   if (!(await hasPermission(PERMISSIONS.CUSTOMERS_VIEW))) {
-    redirect("/admin/dashboard");
+    const { staff } = await getStoreContext();
+    return (
+      <AccessDenied
+        resource="Customers"
+        permission={PERMISSIONS.CUSTOMERS_VIEW}
+        roleName={staff?.roleName}
+      />
+    );
   }
   const sp = await searchParams;
   const { rows, total, page, pageSize } = await listAdminCustomers({

@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveStoreId } from "@/lib/store/active";
 
 export interface AdminDiscountRow {
   id: string;
@@ -32,6 +33,7 @@ function isLive(d: {
 
 export async function listAdminDiscounts(): Promise<AdminDiscountRow[]> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data, error } = await supabase
     .from("discounts")
     .select(
@@ -40,6 +42,7 @@ export async function listAdminDiscounts(): Promise<AdminDiscountRow[]> {
        product:products(title),
        category:categories(title)`,
     )
+    .eq("store_id", storeId)
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -98,12 +101,14 @@ export async function getAdminDiscountById(
   id: string,
 ): Promise<AdminDiscountDetail | null> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data, error } = await supabase
     .from("discounts")
     .select(
       `id, title, description, code, kind, value, scope, product_id, category_id,
        min_subtotal_cents, max_uses, uses_count, starts_at, ends_at, is_active`,
     )
+    .eq("store_id", storeId)
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -135,9 +140,11 @@ export interface ProductOption {
 
 export async function listProductOptions(): Promise<ProductOption[]> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data, error } = await supabase
     .from("products")
     .select("id, title")
+    .eq("store_id", storeId)
     .order("title", { ascending: true })
     .limit(500);
   if (error) throw error;

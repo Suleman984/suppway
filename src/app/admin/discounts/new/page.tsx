@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
+import { storeLink } from "@/lib/store/active";
 import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { hasPermission } from "@/lib/rbac/check";
@@ -11,7 +12,7 @@ export const metadata = { title: "New discount" };
 
 export default async function NewDiscountPage() {
   if (!(await hasPermission(PERMISSIONS.DISCOUNTS_CREATE))) {
-    redirect("/admin/discounts");
+    redirect(await storeLink("/admin/discounts"));
   }
   const [products, categories] = await Promise.all([
     listProductOptions(),

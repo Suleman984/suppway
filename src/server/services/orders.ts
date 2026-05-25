@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveStoreId } from "@/lib/store/active";
 
 export interface AdminOrderRow {
   id: string;
@@ -31,6 +32,7 @@ export async function listAdminOrders(
   params: ListAdminOrdersParams = {},
 ): Promise<ListAdminOrdersResult> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(100, Math.max(10, params.pageSize ?? 25));
   const from = (page - 1) * pageSize;
@@ -44,6 +46,7 @@ export async function listAdminOrders(
        customer:customers(first_name, last_name)`,
       { count: "exact" },
     )
+    .eq("store_id", storeId)
     .order("placed_at", { ascending: false })
     .range(from, to);
 
@@ -123,6 +126,7 @@ export async function getAdminOrderById(
   id: string,
 ): Promise<AdminOrderDetail | null> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data } = await supabase
     .from("orders")
     .select(
@@ -133,6 +137,7 @@ export async function getAdminOrderById(
                           total_spent_cents, orders_count),
        order_items(id, product_title, variant_title, quantity, price_cents, total_cents)`,
     )
+    .eq("store_id", storeId)
     .eq("id", id)
     .maybeSingle();
 

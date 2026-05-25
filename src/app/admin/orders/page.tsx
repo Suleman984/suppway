@@ -1,11 +1,13 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import Link from "@/lib/store/link";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { hasPermission } from "@/lib/rbac/check";
 import { PERMISSIONS } from "@/config/permissions";
 import { formatCents, listAdminOrders } from "@/server/services/orders";
+import { OrderActions } from "@/components/admin/orders/order-actions";
+import { AccessDenied } from "@/components/admin/access-denied";
+import { getStoreContext } from "@/lib/store/context";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Orders" };
@@ -27,15 +29,29 @@ interface Props {
 
 export default async function AdminOrdersPage({ searchParams }: Props) {
   if (!(await hasPermission(PERMISSIONS.ORDERS_VIEW))) {
-    redirect("/admin/dashboard");
+    const { staff } = await getStoreContext();
+    return (
+      <AccessDenied
+        resource="Orders"
+        permission={PERMISSIONS.ORDERS_VIEW}
+        roleName={staff?.roleName}
+      />
+    );
   }
   const sp = await searchParams;
-  const { rows, total, page, pageSize } = await listAdminOrders({
-    q: sp.q,
-    status: sp.status,
-    page: sp.page ? Math.max(1, Number(sp.page)) : 1,
-  });
+  const [{ rows, total, page, pageSize }, canUpdate, canCancel, canRefund] =
+    await Promise.all([
+      listAdminOrders({
+        q: sp.q,
+        status: sp.status,
+        page: sp.page ? Math.max(1, Number(sp.page)) : 1,
+      }),
+      hasPermission(PERMISSIONS.ORDERS_UPDATE),
+      hasPermission(PERMISSIONS.ORDERS_CANCEL),
+      hasPermission(PERMISSIONS.ORDERS_REFUND),
+    ]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const perms = { update: canUpdate, cancel: canCancel, refund: canRefund };
 
   return (
     <div className="container max-w-6xl py-10">
@@ -86,12 +102,13 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
               <th className="px-4 py-3 text-right">Items</th>
               <th className="px-4 py-3 text-right">Total</th>
               <th className="px-4 py-3 text-right">Placed</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
                   No orders match these filters yet.
                 </td>
               </tr>
@@ -124,6 +141,16 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                   </td>
                   <td className="px-4 py-3 text-right text-xs text-muted-foreground">
                     {new Date(o.placedAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end">
+                      <OrderActions
+                        orderId={o.id}
+                        status={o.status}
+                        permissions={perms}
+                        variant="compact"
+                      />
+                    </div>
                   </td>
                 </tr>
               ))

@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveStoreId } from "@/lib/store/active";
 
 export interface AdminCustomerRow {
   id: string;
@@ -30,6 +31,7 @@ export async function listAdminCustomers(
   params: ListAdminCustomersParams = {},
 ): Promise<ListAdminCustomersResult> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(100, Math.max(10, params.pageSize ?? 25));
   const from = (page - 1) * pageSize;
@@ -41,6 +43,7 @@ export async function listAdminCustomers(
       "id, email, first_name, last_name, phone, total_spent_cents, orders_count, user_id, created_at",
       { count: "exact" },
     )
+    .eq("store_id", storeId)
     .order("total_spent_cents", { ascending: false, nullsFirst: false })
     .range(from, to);
 
@@ -127,12 +130,14 @@ export async function getAdminCustomerById(
   id: string,
 ): Promise<AdminCustomerDetail | null> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data: row } = await supabase
     .from("customers")
     .select(
       `id, email, first_name, last_name, phone, marketing_opt_in, user_id,
        total_spent_cents, orders_count, created_at`,
     )
+    .eq("store_id", storeId)
     .eq("id", id)
     .maybeSingle();
   if (!row) return null;
@@ -145,6 +150,7 @@ export async function getAdminCustomerById(
       supabase
         .from("orders")
         .select("id, order_number, status, total_cents, placed_at")
+        .eq("store_id", storeId)
         .eq("customer_id", id)
         .order("placed_at", { ascending: false })
         .limit(50),
@@ -161,6 +167,7 @@ export async function getAdminCustomerById(
             .select(
               "id, delta, reason, note, created_at, order:orders(order_number)",
             )
+            .eq("store_id", storeId)
             .eq("user_id", userId)
             .order("created_at", { ascending: false })
             .limit(50)

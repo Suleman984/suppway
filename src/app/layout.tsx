@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "@/styles/globals.css";
 import { BRAND } from "@/lib/brand";
 import { SessionWatcher } from "@/components/auth/session-watcher";
+import { StoreSlugProvider } from "@/lib/store/link";
+import { getActiveStore } from "@/lib/store/active";
 
 /**
  * Demo root layout — uses BRAND constants so the site renders without a
@@ -25,12 +27,19 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const activeStore = await getActiveStore();
   return (
     <html lang="en" className="scroll-smooth">
       <body className="min-h-screen bg-background text-foreground antialiased">
         <SessionWatcher />
-        {children}
+        <StoreSlugProvider slug={activeStore.slug}>
+          {children}
+        </StoreSlugProvider>
       </body>
     </html>
   );

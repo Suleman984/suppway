@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { BRAND } from "@/lib/brand";

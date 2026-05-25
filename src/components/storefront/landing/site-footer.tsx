@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { BRAND } from "@/lib/brand";
 import { NewsletterForm } from "./newsletter-form";
 

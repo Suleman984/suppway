@@ -8,6 +8,42 @@ import { requirePermission } from "@/lib/rbac/check";
 import { PERMISSIONS } from "@/config/permissions";
 import { idSchema } from "@/lib/validation/common";
 import { priceCart } from "@/server/services/pricing";
+import { getActiveStoreId } from "@/lib/store/active";
+import {
+  renderOrderCanceledEmail,
+  renderOrderRefundedEmail,
+  sendEmail,
+} from "@/lib/email/resend";
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+/**
+ * Restock the variants from an order back into inventory. Used by cancel
+ * and full refund. Best-effort per item — if one update fails we keep
+ * going so the surrounding action still completes.
+ */
+async function restockOrderItems(admin: AdminClient, orderId: string) {
+  const { data: items } = await admin
+    .from("order_items")
+    .select("variant_id, quantity")
+    .eq("order_id", orderId);
+  for (const it of (items as Array<{ variant_id: string; quantity: number }> | null) ?? []) {
+    const { data: v } = await admin
+      .from("product_variants")
+      .select("inventory_qty")
+      .eq("id", it.variant_id)
+      .maybeSingle();
+    if (!v) continue;
+    await admin
+      .from("product_variants")
+      .update({ inventory_qty: (v.inventory_qty as number) + it.quantity })
+      .eq("id", it.variant_id);
+  }
+}
+
+function pkr(cents: number) {
+  return `Rs. ${(cents / 100).toLocaleString("en-PK", { maximumFractionDigits: 0 })}`;
+}
 
 /**
  * Customer checkout submission + admin order management actions.
@@ -78,11 +114,13 @@ function pointsForSubtotal(subtotalCents: number) {
  */
 async function consumeCheckoutVerification(
   email: string,
+  storeId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from("checkout_verifications")
     .select("id, expires_at, consumed_at")
+    .eq("store_id", storeId)
     .eq("email", email)
     .is("consumed_at", null)
     .order("created_at", { ascending: false })
@@ -132,6 +170,7 @@ export async function placeOrder(
   }
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
 
   // Server is the source of truth for pricing — never trust the client.
   const priced = await priceCart(parsed.data.items, {
@@ -169,14 +208,16 @@ export async function placeOrder(
   const isOwnAuthEmail =
     !!user && (user.email ?? "").toLowerCase() === email;
   if (!isOwnAuthEmail) {
-    const gate = await consumeCheckoutVerification(email);
+    const gate = await consumeCheckoutVerification(email, storeId);
     if (!gate.ok) return { ok: false, error: gate.error };
   }
 
-  // Find or create customer (by email).
+  // Find or create customer (by email) — scoped to THIS store. The same
+  // email at a different store is a different customer record.
   const { data: existingCust } = await admin
     .from("customers")
     .select("id, total_spent_cents, orders_count")
+    .eq("store_id", storeId)
     .eq("email", parsed.data.email.toLowerCase())
     .maybeSingle();
 
@@ -199,6 +240,7 @@ export async function placeOrder(
     const { data: created, error: createErr } = await admin
       .from("customers")
       .insert({
+        store_id: storeId,
         user_id: user?.id ?? null,
         email: parsed.data.email.toLowerCase(),
         first_name: parsed.data.shipping.firstName,
@@ -220,6 +262,7 @@ export async function placeOrder(
   const { data: orderRow, error: orderErr } = await admin
     .from("orders")
     .insert({
+      store_id: storeId,
       customer_id: customerId,
       order_number: orderNumber,
       status: isPaid ? "paid" : "pending",
@@ -246,6 +289,7 @@ export async function placeOrder(
   const orderId = orderRow!.id as string;
 
   const itemRows = priced.lines.map((l) => ({
+    store_id: storeId,
     order_id: orderId,
     variant_id: l.variantId,
     product_title: l.productTitle,
@@ -301,6 +345,7 @@ export async function placeOrder(
       const pts = pointsForSubtotal(priced.subtotalCents);
       if (pts > 0) {
         await admin.from("loyalty_points").insert({
+          store_id: storeId,
           user_id: user.id,
           order_id: orderId,
           delta: pts,
@@ -328,14 +373,18 @@ async function getOrderForAdmin(orderId: string) {
   const { data } = await supabase
     .from("orders")
     .select(
-      "id, status, customer_id, total_cents, subtotal_cents, refunded_cents",
+      "id, store_id, order_number, email, status, fulfillment_status, customer_id, total_cents, subtotal_cents, refunded_cents",
     )
     .eq("id", orderId)
     .maybeSingle();
   return data as
     | {
         id: string;
+        store_id: string;
+        order_number: string;
+        email: string;
         status: string;
+        fulfillment_status: string;
         customer_id: string | null;
         total_cents: number;
         subtotal_cents: number;
@@ -384,6 +433,7 @@ export async function markOrderPaid(input: unknown): Promise<ActionResult> {
         const pts = pointsForSubtotal(order.subtotal_cents);
         if (pts > 0) {
           await admin.from("loyalty_points").insert({
+            store_id: order.store_id,
             user_id: cust.user_id,
             order_id: parsed.data.id,
             delta: pts,
@@ -428,16 +478,51 @@ export async function cancelOrder(input: unknown): Promise<ActionResult> {
   }
   const parsed = orderActionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid id" };
+
+  const order = await getOrderForAdmin(parsed.data.id);
+  if (!order) return { ok: false, error: "Order not found" };
+  if (order.status === "canceled") {
+    return { ok: true, message: "Already canceled." };
+  }
+  if (order.fulfillment_status === "fulfilled") {
+    return {
+      ok: false,
+      error: "This order has been fulfilled. Issue a refund instead.",
+    };
+  }
+  if (order.status !== "pending" && order.status !== "paid") {
+    return {
+      ok: false,
+      error: "Only pending or paid orders can be canceled.",
+    };
+  }
+
   const admin = createAdminClient();
   const { error } = await admin
     .from("orders")
     .update({ status: "canceled" })
     .eq("id", parsed.data.id);
   if (error) return { ok: false, error: error.message };
+
+  // Free up inventory so the canceled units can be sold again.
+  await restockOrderItems(admin, parsed.data.id);
+
+  // Tell the customer. Best-effort — a delivery failure shouldn't block
+  // the cancel from completing in the DB.
+  const tpl = renderOrderCanceledEmail({ orderNumber: order.order_number });
+  await sendEmail({ to: order.email, ...tpl });
+
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${parsed.data.id}`);
-  return { ok: true, message: "Canceled." };
+  revalidatePath("/account");
+  return { ok: true, message: "Canceled. Items restocked, customer notified." };
 }
+
+const refundSchema = z.object({
+  id: idSchema,
+  amountCents: z.number().int().positive().optional(),
+  reason: z.string().trim().max(500).optional().nullable(),
+});
 
 export async function refundOrder(input: unknown): Promise<ActionResult> {
   try {
@@ -445,24 +530,71 @@ export async function refundOrder(input: unknown): Promise<ActionResult> {
   } catch {
     return { ok: false, error: "You don't have permission to refund orders." };
   }
-  const parsed = orderActionSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid id" };
+  const parsed = refundSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid refund input" };
 
   const order = await getOrderForAdmin(parsed.data.id);
   if (!order) return { ok: false, error: "Order not found" };
-  if (order.status === "refunded") return { ok: true, message: "Already refunded" };
+  if (order.status === "refunded") {
+    return { ok: false, error: "Order is already fully refunded." };
+  }
+  if (
+    order.status !== "paid" &&
+    order.status !== "fulfilled" &&
+    order.status !== "partially_refunded"
+  ) {
+    return {
+      ok: false,
+      error: "Only paid or fulfilled orders can be refunded.",
+    };
+  }
+
+  const remaining = order.total_cents - order.refunded_cents;
+  if (remaining <= 0) {
+    return { ok: false, error: "No amount left to refund on this order." };
+  }
+  const amount = parsed.data.amountCents ?? remaining;
+  if (amount > remaining) {
+    return {
+      ok: false,
+      error: `Cannot refund more than the remaining ${pkr(remaining)}.`,
+    };
+  }
+
+  // Who's clicking the button — recorded for the audit trail.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const admin = createAdminClient();
-  const { error } = await admin
-    .from("orders")
-    .update({
-      status: "refunded",
-      refunded_cents: order.total_cents,
-    })
-    .eq("id", parsed.data.id);
-  if (error) return { ok: false, error: error.message };
+  const newRefunded = order.refunded_cents + amount;
+  const isFull = newRefunded >= order.total_cents;
+  const newStatus = isFull ? "refunded" : "partially_refunded";
 
-  // Reverse loyalty points earned on this order, if any.
+  const { error: refundErr } = await admin.from("refunds").insert({
+    store_id: order.store_id,
+    order_id: parsed.data.id,
+    amount_cents: amount,
+    reason: parsed.data.reason ?? null,
+    processed_by: user?.id ?? null,
+  });
+  if (refundErr) return { ok: false, error: refundErr.message };
+
+  const { error: orderErr } = await admin
+    .from("orders")
+    .update({ status: newStatus, refunded_cents: newRefunded })
+    .eq("id", parsed.data.id);
+  if (orderErr) return { ok: false, error: orderErr.message };
+
+  // Restock only on full refund. Partial refunds don't tell us which line
+  // items were affected, so we leave inventory alone until we have a
+  // line-item return UI (later phase).
+  if (isFull) {
+    await restockOrderItems(admin, parsed.data.id);
+  }
+
+  // Reverse loyalty points proportional to the refunded amount.
   if (order.customer_id) {
     const { data: cust } = await admin
       .from("customers")
@@ -470,30 +602,38 @@ export async function refundOrder(input: unknown): Promise<ActionResult> {
       .eq("id", order.customer_id)
       .maybeSingle();
     if (cust?.user_id) {
-      const { data: earned } = await admin
-        .from("loyalty_points")
-        .select("delta")
-        .eq("order_id", parsed.data.id)
-        .eq("reason", "purchase");
-      const total =
-        (earned as Array<{ delta: number }> | null)?.reduce(
-          (s, r) => s + r.delta,
-          0,
-        ) ?? 0;
-      if (total > 0) {
+      const subtotalShare = isFull
+        ? order.subtotal_cents
+        : Math.floor((order.subtotal_cents * amount) / order.total_cents);
+      const pts = pointsForSubtotal(subtotalShare);
+      if (pts > 0) {
         await admin.from("loyalty_points").insert({
+          store_id: order.store_id,
           user_id: cust.user_id,
           order_id: parsed.data.id,
-          delta: -total,
+          delta: -pts,
           reason: "adjustment",
-          note: `Refund of order — points reversed`,
+          note: isFull
+            ? `Full refund of order ${order.order_number} — points reversed`
+            : `Partial refund (${pkr(amount)}) — points reversed`,
         });
       }
     }
   }
 
+  const tpl = renderOrderRefundedEmail({
+    orderNumber: order.order_number,
+    amountCents: amount,
+    isFull,
+    reason: parsed.data.reason ?? null,
+  });
+  await sendEmail({ to: order.email, ...tpl });
+
   revalidatePath("/admin/orders");
   revalidatePath(`/admin/orders/${parsed.data.id}`);
   revalidatePath("/account");
-  return { ok: true, message: "Refunded." };
+  return {
+    ok: true,
+    message: isFull ? "Refunded in full." : `Refunded ${pkr(amount)}.`,
+  };
 }

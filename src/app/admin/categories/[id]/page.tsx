@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
+import { storeLink } from "@/lib/store/active";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { hasPermission } from "@/lib/rbac/check";
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function EditCategoryPage({ params }: PageProps) {
   if (!(await hasPermission(PERMISSIONS.COLLECTIONS_MANAGE))) {
-    redirect("/admin/categories");
+    redirect(await storeLink("/admin/categories"));
   }
   const { id } = await params;
   const [category, parents] = await Promise.all([

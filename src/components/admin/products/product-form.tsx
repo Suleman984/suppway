@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { useRouter } from "next/navigation";
+import { useStoreLink } from "@/lib/store/link";
 import { useState, useTransition } from "react";
 import { Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const STATUSES: { value: ProductStatus; label: string; hint: string }[] = [
 
 export function ProductForm({ mode, initial }: Props) {
   const router = useRouter();
+  const link = useStoreLink();
   const [pending, startTransition] = useTransition();
   const [state, setState] = useState<InitialValues>(initial);
   const [tagsText, setTagsText] = useState(initial.tags.join(", "));
@@ -88,7 +90,7 @@ export function ProductForm({ mode, initial }: Props) {
       }
 
       if (mode === "create" && "data" in result && result.data) {
-        router.push(`/admin/products/${result.data.id}`);
+        router.push(link(`/admin/products/${result.data.id}`));
       } else {
         setSavedAt(new Date());
         router.refresh();

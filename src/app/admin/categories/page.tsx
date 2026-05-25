@@ -1,17 +1,25 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import Link from "@/lib/store/link";
 import { Pencil, Plus } from "lucide-react";
 import { hasPermission } from "@/lib/rbac/check";
 import { PERMISSIONS } from "@/config/permissions";
 import { listAdminCategories } from "@/server/services/categories";
 import { CategoryRowActions } from "@/components/admin/categories/category-row-actions";
+import { AccessDenied } from "@/components/admin/access-denied";
+import { getStoreContext } from "@/lib/store/context";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Categories" };
 
 export default async function AdminCategoriesPage() {
   if (!(await hasPermission(PERMISSIONS.COLLECTIONS_MANAGE))) {
-    redirect("/admin/dashboard");
+    const { staff } = await getStoreContext();
+    return (
+      <AccessDenied
+        resource="Categories"
+        permission={PERMISSIONS.COLLECTIONS_MANAGE}
+        roleName={staff?.roleName}
+      />
+    );
   }
   const rows = await listAdminCategories();
 

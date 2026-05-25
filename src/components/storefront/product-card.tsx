@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { Star } from "lucide-react";
 import { formatPKR, type DummyProduct } from "@/lib/catalog/products";
 import { QuickAddButton } from "./quick-add-button";

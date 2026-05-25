@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { useRouter } from "next/navigation";
+import { useStoreLink } from "@/lib/store/link";
 import { useState, useTransition } from "react";
 import { Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ interface Props {
 
 export function CategoryForm({ mode, initial, parents }: Props) {
   const router = useRouter();
+  const link = useStoreLink();
   const [pending, startTransition] = useTransition();
   const [state, setState] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export function CategoryForm({ mode, initial, parents }: Props) {
         return;
       }
       if (mode === "create" && "data" in result && result.data) {
-        router.push(`/admin/categories/${result.data.id}`);
+        router.push(link(`/admin/categories/${result.data.id}`));
       } else {
         setSavedAt(new Date());
         router.refresh();

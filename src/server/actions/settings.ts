@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/rbac/check";
-import { updateBrandingSchema, updateThemeSchema } from "@/lib/validation/settings";
+import { getActiveStoreId } from "@/lib/store/active";
+import {
+  updateBrandingSchema,
+  updateStoreSettingsSchema,
+  updateThemeSchema,
+} from "@/lib/validation/settings";
 
 export type ActionResult =
   | { ok: true; message?: string }
@@ -31,13 +36,14 @@ export async function updateTheme(input: unknown): Promise<ActionResult> {
   }
 
   const supabase = createAdminClient();
+  const storeId = await getActiveStoreId();
   const { error } = await supabase
     .from("store_settings")
     .update({
       active_theme: parsed.data.activeTheme,
       custom_brand_color: parsed.data.customBrandColor || null,
     })
-    .eq("singleton", true);
+    .eq("store_id", storeId);
 
   if (error) return { ok: false, error: error.message };
 
@@ -55,6 +61,7 @@ export async function updateBranding(input: unknown): Promise<ActionResult> {
 
   const v = parsed.data;
   const supabase = createAdminClient();
+  const storeId = await getActiveStoreId();
   const { error } = await supabase
     .from("store_settings")
     .update({
@@ -73,10 +80,49 @@ export async function updateBranding(input: unknown): Promise<ActionResult> {
       seo_title: v.seoTitle ?? null,
       seo_description: v.seoDescription ?? null,
     })
-    .eq("singleton", true);
+    .eq("store_id", storeId);
 
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/", "layout");
   return { ok: true, message: "Branding updated." };
+}
+
+export async function updateStoreSettings(
+  input: unknown,
+): Promise<ActionResult> {
+  await requirePermission("settings.update");
+
+  const parsed = updateStoreSettingsSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Invalid input",
+      fieldErrors: flattenZod(parsed.error),
+    };
+  }
+
+  const v = parsed.data;
+  const social: Record<string, string> = {};
+  if (v.instagram) social.instagram = v.instagram;
+  if (v.facebook) social.facebook = v.facebook;
+  if (v.twitter) social.twitter = v.twitter;
+  if (v.tiktok) social.tiktok = v.tiktok;
+  if (v.youtube) social.youtube = v.youtube;
+
+  const supabase = createAdminClient();
+  const storeId = await getActiveStoreId();
+  const { error } = await supabase
+    .from("store_settings")
+    .update({
+      default_locale: v.defaultLocale,
+      default_currency: v.defaultCurrency.toUpperCase(),
+      social,
+    })
+    .eq("store_id", storeId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Store settings updated." };
 }

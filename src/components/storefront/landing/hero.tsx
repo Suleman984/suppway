@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { BRAND } from "@/lib/brand";

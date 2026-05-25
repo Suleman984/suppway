@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { cn } from "@/lib/utils/cn";
 
 interface AuthCardProps {

@@ -4,6 +4,7 @@ import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { renderCheckoutOtpEmail, sendEmail } from "@/lib/email/resend";
+import { getActiveStoreId } from "@/lib/store/active";
 
 /**
  * Guest-checkout email OTP. Proves the email at the checkout form belongs
@@ -45,15 +46,17 @@ export async function sendCheckoutOtp(input: unknown): Promise<OtpResult> {
   const parsed = sendSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid email" };
   const email = parsed.data.email.toLowerCase();
+  const storeId = await getActiveStoreId();
 
   const admin = createAdminClient();
 
-  // Per-email send rate limit. Cheap and effective against a single victim;
-  // global per-IP rate limiting belongs in middleware, not here.
+  // Per-email send rate limit (per store). Cheap and effective against a
+  // single victim; global per-IP rate limiting belongs in middleware.
   const since = new Date(Date.now() - SEND_WINDOW_MS).toISOString();
   const { count } = await admin
     .from("checkout_verifications")
     .select("id", { count: "exact", head: true })
+    .eq("store_id", storeId)
     .eq("email", email)
     .gte("created_at", since);
   if ((count ?? 0) >= SEND_MAX_PER_WINDOW) {
@@ -67,6 +70,7 @@ export async function sendCheckoutOtp(input: unknown): Promise<OtpResult> {
   const expiresAt = new Date(Date.now() + OTP_TTL_MS).toISOString();
 
   const { error: insertErr } = await admin.from("checkout_verifications").insert({
+    store_id: storeId,
     email,
     code_hash: hashCode(code, email),
     max_attempts: MAX_ATTEMPTS,
@@ -93,14 +97,16 @@ export async function verifyCheckoutOtp(input: unknown): Promise<OtpResult> {
   }
   const email = parsed.data.email.toLowerCase();
   const code = parsed.data.code;
+  const storeId = await getActiveStoreId();
 
   const admin = createAdminClient();
 
-  // Most recent unconsumed row; older rows for this email are ignored
-  // (still expire naturally and stay around for audit).
+  // Most recent unconsumed row for this store + email; older rows are
+  // ignored (still expire naturally and stay around for audit).
   const { data: row } = await admin
     .from("checkout_verifications")
     .select("id, code_hash, attempts, max_attempts, expires_at, consumed_at")
+    .eq("store_id", storeId)
     .eq("email", email)
     .is("consumed_at", null)
     .order("created_at", { ascending: false })

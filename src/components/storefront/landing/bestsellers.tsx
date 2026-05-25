@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { useRef } from "react";
 import { Plus, Star } from "lucide-react";
 import { useReveal } from "@/lib/animations/use-reveal";

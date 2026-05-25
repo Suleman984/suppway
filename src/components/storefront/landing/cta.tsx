@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { useReveal } from "@/lib/animations/use-reveal";

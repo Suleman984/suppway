@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
+import { storeLink } from "@/lib/store/active";
 import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { hasPermission } from "@/lib/rbac/check";
@@ -9,7 +10,7 @@ export const metadata = { title: "New product" };
 
 export default async function NewProductPage() {
   if (!(await hasPermission(PERMISSIONS.PRODUCTS_CREATE))) {
-    redirect("/admin/products");
+    redirect(await storeLink("/admin/products"));
   }
   return (
     <div className="container max-w-5xl py-10">

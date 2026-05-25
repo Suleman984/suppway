@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/check";
 import { PERMISSIONS } from "@/config/permissions";
 import { idSchema } from "@/lib/validation/common";
+import { getActiveStoreId } from "@/lib/store/active";
 import {
   categoryCreateSchema,
   categoryUpdateSchema,
@@ -44,9 +45,11 @@ export async function createCategory(
   }
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data, error } = await supabase
     .from("categories")
     .insert({
+      store_id: storeId,
       slug: parsed.data.slug,
       title: parsed.data.title,
       description: parsed.data.description || null,
@@ -86,6 +89,7 @@ export async function updateCategory(input: unknown): Promise<ActionResult> {
   }
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { error } = await supabase
     .from("categories")
     .update({
@@ -99,6 +103,7 @@ export async function updateCategory(input: unknown): Promise<ActionResult> {
       seo_title: parsed.data.seoTitle || null,
       seo_description: parsed.data.seoDescription || null,
     })
+    .eq("store_id", storeId)
     .eq("id", parsed.data.id);
   if (error) {
     if (error.code === "23505") {
@@ -124,7 +129,12 @@ export async function deleteCategory(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Invalid id" };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("categories").delete().eq("id", parsed.data);
+  const storeId = await getActiveStoreId();
+  const { error } = await supabase
+    .from("categories")
+    .delete()
+    .eq("store_id", storeId)
+    .eq("id", parsed.data);
   if (error) return { ok: false, error: error.message };
   bump();
   return { ok: true, message: "Deleted." };

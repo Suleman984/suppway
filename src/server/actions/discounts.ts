@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/check";
 import { PERMISSIONS } from "@/config/permissions";
 import { idSchema } from "@/lib/validation/common";
+import { getActiveStoreId } from "@/lib/store/active";
 import {
   discountCreateSchema,
   discountUpdateSchema,
@@ -62,9 +63,10 @@ export async function createDiscount(
   }
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data, error } = await supabase
     .from("discounts")
-    .insert(toInsert(parsed.data))
+    .insert({ store_id: storeId, ...toInsert(parsed.data) })
     .select("id")
     .single();
   if (error) {
@@ -93,9 +95,11 @@ export async function updateDiscount(input: unknown): Promise<ActionResult> {
   }
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { error } = await supabase
     .from("discounts")
     .update(toInsert(parsed.data))
+    .eq("store_id", storeId)
     .eq("id", parsed.data.id);
   if (error) {
     if (error.code === "23505") {
@@ -121,7 +125,12 @@ export async function deleteDiscount(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Invalid id" };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("discounts").delete().eq("id", parsed.data);
+  const storeId = await getActiveStoreId();
+  const { error } = await supabase
+    .from("discounts")
+    .delete()
+    .eq("store_id", storeId)
+    .eq("id", parsed.data);
   if (error) return { ok: false, error: error.message };
   bump();
   return { ok: true, message: "Deleted." };
@@ -137,9 +146,11 @@ export async function toggleDiscountActive(input: unknown): Promise<ActionResult
   if (!parsed.success) return { ok: false, error: "Invalid id" };
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data: existing, error: readErr } = await supabase
     .from("discounts")
     .select("is_active")
+    .eq("store_id", storeId)
     .eq("id", parsed.data)
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
@@ -148,6 +159,7 @@ export async function toggleDiscountActive(input: unknown): Promise<ActionResult
   const { error } = await supabase
     .from("discounts")
     .update({ is_active: !existing.is_active })
+    .eq("store_id", storeId)
     .eq("id", parsed.data);
   if (error) return { ok: false, error: error.message };
   bump();

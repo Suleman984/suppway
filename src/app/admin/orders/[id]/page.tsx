@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
+import { storeLink } from "@/lib/store/active";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { hasPermission } from "@/lib/rbac/check";
@@ -20,7 +21,7 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function AdminOrderDetailPage({ params }: PageProps) {
   if (!(await hasPermission(PERMISSIONS.ORDERS_VIEW))) {
-    redirect("/admin/dashboard");
+    redirect(await storeLink("/admin/dashboard"));
   }
   const { id } = await params;
   const order = await getAdminOrderById(id);
@@ -70,6 +71,9 @@ export default async function AdminOrderDetailPage({ params }: PageProps) {
             orderId={order.id}
             status={order.status}
             permissions={{ update: canUpdate, cancel: canCancel, refund: canRefund }}
+            totalCents={order.totalCents}
+            refundedCents={order.refundedCents}
+            currency={order.currency}
           />
         </div>
       </section>

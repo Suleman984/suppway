@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { useRouter } from "next/navigation";
+import { useStoreLink } from "@/lib/store/link";
 import { useState, useTransition } from "react";
 import { Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ const SCOPE_OPTIONS: { value: DiscountScope; label: string; hint: string }[] = [
 
 export function DiscountForm({ mode, initial, products, categories }: Props) {
   const router = useRouter();
+  const link = useStoreLink();
   const [pending, startTransition] = useTransition();
   const [state, setState] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +97,7 @@ export function DiscountForm({ mode, initial, products, categories }: Props) {
         return;
       }
       if (mode === "create" && "data" in result && result.data) {
-        router.push(`/admin/discounts/${result.data.id}`);
+        router.push(link(`/admin/discounts/${result.data.id}`));
       } else {
         setSavedAt(new Date());
         router.refresh();

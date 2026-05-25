@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
+import { storeLink } from "@/lib/store/active";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { hasPermission } from "@/lib/rbac/check";
@@ -31,7 +32,7 @@ function toLocalInput(iso: string | null) {
 
 export default async function EditDiscountPage({ params }: PageProps) {
   if (!(await hasPermission(PERMISSIONS.DISCOUNTS_UPDATE))) {
-    redirect("/admin/discounts");
+    redirect(await storeLink("/admin/discounts"));
   }
   const { id } = await params;
   const [discount, products, categories] = await Promise.all([

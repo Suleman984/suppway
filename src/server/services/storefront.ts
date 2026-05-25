@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveStoreId } from "@/lib/store/active";
 import {
   DUMMY_PRODUCTS,
   getDummyProductBySlug,
@@ -104,6 +105,7 @@ export async function listStorefrontProducts(
   const to = from + pageSize - 1;
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   let query = supabase
     .from("products")
     .select(
@@ -112,6 +114,7 @@ export async function listStorefrontProducts(
        product_media(url, position)`,
       { count: "exact" },
     )
+    .eq("store_id", storeId)
     .eq("status", "published")
     .range(from, to);
 
@@ -275,6 +278,7 @@ export async function getStorefrontProductBySlug(
   slug: string,
 ): Promise<StorefrontProductDetail | null> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data } = await supabase
     .from("products")
     .select(
@@ -283,6 +287,7 @@ export async function getStorefrontProductBySlug(
                         inventory_policy, position),
        product_media(url, position)`,
     )
+    .eq("store_id", storeId)
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
@@ -384,6 +389,7 @@ export async function getStorefrontBestsellers(
   limit = 4,
 ): Promise<StorefrontProductCard[]> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data } = await supabase
     .from("products")
     .select(
@@ -391,6 +397,7 @@ export async function getStorefrontBestsellers(
        product_variants(price_cents, compare_at_cents, currency),
        product_media(url, position)`,
     )
+    .eq("store_id", storeId)
     .eq("status", "published")
     .order("rating_count", { ascending: false, nullsFirst: false })
     .limit(limit);

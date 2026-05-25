@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
+import { storeLink } from "@/lib/store/active";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft, ExternalLink } from "lucide-react";
 import { hasPermission } from "@/lib/rbac/check";
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function EditProductPage({ params }: PageProps) {
   if (!(await hasPermission(PERMISSIONS.PRODUCTS_UPDATE))) {
-    redirect("/admin/products");
+    redirect(await storeLink("/admin/products"));
   }
 
   const { id } = await params;

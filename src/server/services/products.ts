@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveStoreId } from "@/lib/store/active";
 
 /**
  * Admin-side read services. Public catalog reads (storefront) go through
@@ -46,6 +47,7 @@ export async function listAdminProducts(
   params: ListAdminProductsParams = {},
 ): Promise<ListAdminProductsResult> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(100, Math.max(5, params.pageSize ?? 25));
   const from = (page - 1) * pageSize;
@@ -59,6 +61,7 @@ export async function listAdminProducts(
        product_media(url, position)`,
       { count: "exact" },
     )
+    .eq("store_id", storeId)
     .order("updated_at", { ascending: false })
     .range(from, to);
 
@@ -141,6 +144,7 @@ export async function getAdminProductById(
   id: string,
 ): Promise<AdminProductDetail | null> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data, error } = await supabase
     .from("products")
     .select(
@@ -152,6 +156,7 @@ export async function getAdminProductById(
                         inventory_policy, position),
        product_media(id, url, alt, position)`,
     )
+    .eq("store_id", storeId)
     .eq("id", id)
     .maybeSingle();
 

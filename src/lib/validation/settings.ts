@@ -14,6 +14,17 @@ export const updateThemeSchema = z.object({
 });
 export type UpdateThemeInput = z.infer<typeof updateThemeSchema>;
 
+export const updateStoreSettingsSchema = z.object({
+  defaultLocale: z.string().min(2).max(10),
+  defaultCurrency: z.string().min(3).max(3),
+  instagram: z.string().url().optional().or(z.literal("")),
+  facebook: z.string().url().optional().or(z.literal("")),
+  twitter: z.string().url().optional().or(z.literal("")),
+  tiktok: z.string().url().optional().or(z.literal("")),
+  youtube: z.string().url().optional().or(z.literal("")),
+});
+export type UpdateStoreSettingsInput = z.infer<typeof updateStoreSettingsSchema>;
+
 export const updateBrandingSchema = z.object({
   name: z.string().min(1).max(120),
   tagline: z.string().max(200).optional(),

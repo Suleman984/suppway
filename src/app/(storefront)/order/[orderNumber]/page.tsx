@@ -1,9 +1,10 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Package, Receipt } from "lucide-react";
 import { SiteNavServer } from "@/components/storefront/landing/site-nav-server";
 import { SiteFooter } from "@/components/storefront/landing/site-footer";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getActiveStoreId } from "@/lib/store/active";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Order confirmed", robots: { index: false } };
@@ -22,6 +23,7 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
   // effectively the only required credential — same model as
   // Shopify/Amazon "track your order" links.
   const admin = createAdminClient();
+  const storeId = await getActiveStoreId();
   const { data } = await admin
     .from("orders")
     .select(
@@ -29,6 +31,7 @@ export default async function OrderConfirmationPage({ params }: PageProps) {
        shipping_cents, total_cents, placed_at, shipping_address,
        order_items(product_title, variant_title, quantity, total_cents)`,
     )
+    .eq("store_id", storeId)
     .eq("order_number", orderNumber)
     .maybeSingle();
 

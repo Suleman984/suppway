@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { publicEnv } from "@/config/env";
+import { getActiveStoreId } from "@/lib/store/active";
 import type { ThemeId } from "@/lib/themes/types";
 
 /**
@@ -38,7 +39,12 @@ export interface StoreSettings {
 
 export const getStoreSettings = cache(async (): Promise<StoreSettings> => {
   const supabase = createAdminClient();
-  const { data } = await supabase.from("store_settings").select("*").limit(1).maybeSingle();
+  const storeId = await getActiveStoreId();
+  const { data } = await supabase
+    .from("store_settings")
+    .select("*")
+    .eq("store_id", storeId)
+    .maybeSingle();
   return mapRow(data);
 });
 

@@ -1,4 +1,5 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
+import { storeLink } from "@/lib/store/active";
 import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { hasPermission } from "@/lib/rbac/check";
@@ -10,7 +11,7 @@ export const metadata = { title: "New category" };
 
 export default async function NewCategoryPage() {
   if (!(await hasPermission(PERMISSIONS.COLLECTIONS_MANAGE))) {
-    redirect("/admin/categories");
+    redirect(await storeLink("/admin/categories"));
   }
   const parents = await listCategoryOptions();
 

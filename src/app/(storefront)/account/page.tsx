@@ -1,10 +1,11 @@
-import Link from "next/link";
+import Link from "@/lib/store/link";
 import { redirect } from "next/navigation";
 import { Award, ChevronRight, MapPin, Package, Settings, User } from "lucide-react";
 import { SiteNavServer } from "@/components/storefront/landing/site-nav-server";
 import { SiteFooter } from "@/components/storefront/landing/site-footer";
 import { AccountSignOut } from "@/components/storefront/account-signout";
 import { formatPKR, getAccountSnapshot } from "@/server/services/account";
+import { storeLink } from "@/lib/store/active";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My account", robots: { index: false } };
@@ -31,7 +32,10 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default async function AccountPage() {
   const snapshot = await getAccountSnapshot();
-  if (!snapshot) redirect("/login?next=/account");
+  if (!snapshot) {
+    const next = await storeLink("/account");
+    redirect(`/login?next=${encodeURIComponent(next)}`);
+  }
 
   const displayName =
     snapshot.profile?.fullName?.split(" ")[0] ??
@@ -53,11 +57,11 @@ export default async function AccountPage() {
 
           <div className="mt-10 grid gap-8 lg:grid-cols-[260px_1fr]">
             <aside className="rounded-3xl border border-white/10 bg-white/[0.02] p-3 lg:sticky lg:top-28 lg:h-fit">
-              <NavItem icon={Package} label="Orders" active />
-              <NavItem icon={Award} label="Loyalty points" />
-              <NavItem icon={MapPin} label="Addresses" />
-              <NavItem icon={User} label="Profile" />
-              <NavItem icon={Settings} label="Settings" />
+              <NavItem icon={Package} label="Orders" href="#orders" />
+              <NavItem icon={Award} label="Loyalty points" href="#loyalty" />
+              <NavItem icon={MapPin} label="Addresses" disabled />
+              <NavItem icon={User} label="Profile" disabled />
+              <NavItem icon={Settings} label="Settings" disabled />
             </aside>
 
             <div className="space-y-8">
@@ -82,7 +86,10 @@ export default async function AccountPage() {
               </div>
 
               {/* Recent orders */}
-              <section className="rounded-3xl border border-white/10 bg-white/[0.02]">
+              <section
+                id="orders"
+                className="scroll-mt-28 rounded-3xl border border-white/10 bg-white/[0.02]"
+              >
                 <header className="flex items-center justify-between border-b border-white/10 px-6 py-5">
                   <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/55">
                     Recent orders
@@ -110,34 +117,37 @@ export default async function AccountPage() {
                 ) : (
                   <ul className="divide-y divide-white/5">
                     {snapshot.recentOrders.map((o) => (
-                      <li
-                        key={o.id}
-                        className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div>
-                          <p className="font-bold text-white">
-                            #{o.orderNumber}
-                          </p>
-                          <p className="mt-0.5 text-xs text-white/55">
-                            {new Date(o.placedAt).toLocaleDateString()} ·{" "}
-                            {o.itemCount}{" "}
-                            {o.itemCount === 1 ? "item" : "items"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span
-                            className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${
-                              STATUS_STYLES[o.status] ??
-                              "bg-white/10 text-white/65"
-                            }`}
-                          >
-                            {o.status.replace("_", " ")}
-                          </span>
-                          <span className="text-sm font-bold tabular-nums text-white">
-                            {o.currency} {formatPKR(o.totalCents).replace("Rs. ", "")}
-                          </span>
-                          <ChevronRight className="h-4 w-4 text-white/35" />
-                        </div>
+                      <li key={o.id}>
+                        <Link
+                          href={`/account/orders/${o.orderNumber}`}
+                          prefetch
+                          className="flex flex-col gap-3 p-5 transition hover:bg-white/[0.03] sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div>
+                            <p className="font-bold text-white">
+                              #{o.orderNumber}
+                            </p>
+                            <p className="mt-0.5 text-xs text-white/55">
+                              {new Date(o.placedAt).toLocaleDateString()} ·{" "}
+                              {o.itemCount}{" "}
+                              {o.itemCount === 1 ? "item" : "items"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span
+                              className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${
+                                STATUS_STYLES[o.status] ??
+                                "bg-white/10 text-white/65"
+                              }`}
+                            >
+                              {o.status.replace("_", " ")}
+                            </span>
+                            <span className="text-sm font-bold tabular-nums text-white">
+                              {o.currency} {formatPKR(o.totalCents).replace("Rs. ", "")}
+                            </span>
+                            <ChevronRight className="h-4 w-4 text-white/35" />
+                          </div>
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -145,7 +155,10 @@ export default async function AccountPage() {
               </section>
 
               {/* Points history */}
-              <section className="rounded-3xl border border-white/10 bg-white/[0.02]">
+              <section
+                id="loyalty"
+                className="scroll-mt-28 rounded-3xl border border-white/10 bg-white/[0.02]"
+              >
                 <header className="flex items-center justify-between border-b border-white/10 px-6 py-5">
                   <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white/55">
                     Loyalty activity
@@ -199,6 +212,22 @@ export default async function AccountPage() {
                 )}
               </section>
 
+              <section className="rounded-3xl border border-[#ff3b3b]/30 bg-[#ff3b3b]/5 p-6">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#ff3b3b]">
+                  Run a gym?
+                </p>
+                <p className="mt-2 text-sm text-white/75">
+                  Spin up your own supplement store in under a minute.
+                </p>
+                <Link
+                  href="/onboarding/create-store"
+                  prefetch
+                  className="mt-3 inline-flex h-9 items-center rounded-md bg-[#ff3b3b] px-4 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#ff5252]"
+                >
+                  Create your store →
+                </Link>
+              </section>
+
               <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6">
                 <AccountSignOut />
               </section>
@@ -214,24 +243,38 @@ export default async function AccountPage() {
 function NavItem({
   icon: Icon,
   label,
-  active,
+  href,
+  disabled,
 }: {
   icon: typeof Package;
   label: string;
-  active?: boolean;
+  href?: string;
+  disabled?: boolean;
 }) {
+  const base =
+    "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition";
+  if (disabled) {
+    return (
+      <div
+        className={`${base} cursor-not-allowed text-white/30`}
+        title="Coming soon"
+      >
+        <Icon className="h-4 w-4" />
+        <span className="flex-1">{label}</span>
+        <span className="text-[10px] font-medium uppercase tracking-widest text-white/30">
+          Soon
+        </span>
+      </div>
+    );
+  }
   return (
-    <button
-      type="button"
-      className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition ${
-        active
-          ? "bg-[#ff3b3b]/15 text-white"
-          : "text-white/65 hover:bg-white/5 hover:text-white"
-      }`}
+    <a
+      href={href}
+      className={`${base} text-white/65 hover:bg-white/5 hover:text-white`}
     >
       <Icon className="h-4 w-4" />
       {label}
-    </button>
+    </a>
   );
 }
 

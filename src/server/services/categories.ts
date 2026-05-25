@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveStoreId } from "@/lib/store/active";
 
 export interface AdminCategoryRow {
   id: string;
@@ -15,6 +16,7 @@ export interface AdminCategoryRow {
 
 export async function listAdminCategories(): Promise<AdminCategoryRow[]> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data, error } = await supabase
     .from("categories")
     .select(
@@ -22,6 +24,7 @@ export async function listAdminCategories(): Promise<AdminCategoryRow[]> {
        parent:categories!parent_id(title),
        product_categories(product_id)`,
     )
+    .eq("store_id", storeId)
     .order("sort_order", { ascending: true })
     .order("title", { ascending: true });
   if (error) throw error;
@@ -65,12 +68,14 @@ export async function getAdminCategoryById(
   id: string,
 ): Promise<AdminCategoryDetail | null> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data, error } = await supabase
     .from("categories")
     .select(
       `id, slug, title, description, image_url, parent_id, sort_order,
        is_published, seo_title, seo_description`,
     )
+    .eq("store_id", storeId)
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
@@ -97,9 +102,11 @@ export interface CategoryOption {
 
 export async function listCategoryOptions(): Promise<CategoryOption[]> {
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data, error } = await supabase
     .from("categories")
     .select("id, title")
+    .eq("store_id", storeId)
     .order("title", { ascending: true });
   if (error) throw error;
   return ((data as Array<Record<string, unknown>>) ?? []).map((c) => ({

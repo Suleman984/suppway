@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/rbac/check";
 import { PERMISSIONS } from "@/config/permissions";
 import { idSchema } from "@/lib/validation/common";
+import { getActiveStoreId } from "@/lib/store/active";
 import {
   mediaReorderSchema,
   productCreateSchema,
@@ -64,9 +65,11 @@ export async function createProduct(
   }
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data, error } = await supabase
     .from("products")
     .insert({
+      store_id: storeId,
       slug: parsed.data.slug,
       title: parsed.data.title,
       description: parsed.data.description || null,
@@ -109,11 +112,13 @@ export async function updateProduct(input: unknown): Promise<ActionResult> {
   }
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
 
   // If they're publishing for the first time, stamp published_at.
   const { data: existing } = await supabase
     .from("products")
     .select("status, published_at, slug")
+    .eq("store_id", storeId)
     .eq("id", parsed.data.id)
     .maybeSingle();
 
@@ -137,6 +142,7 @@ export async function updateProduct(input: unknown): Promise<ActionResult> {
         ? new Date().toISOString()
         : existing?.published_at ?? null,
     })
+    .eq("store_id", storeId)
     .eq("id", parsed.data.id);
 
   if (error) {
@@ -165,13 +171,19 @@ export async function deleteProduct(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Invalid id" };
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data: existing } = await supabase
     .from("products")
     .select("slug")
+    .eq("store_id", storeId)
     .eq("id", parsed.data)
     .maybeSingle();
 
-  const { error } = await supabase.from("products").delete().eq("id", parsed.data);
+  const { error } = await supabase
+    .from("products")
+    .delete()
+    .eq("store_id", storeId)
+    .eq("id", parsed.data);
   if (error) return { ok: false, error: error.message };
 
   revalidateCatalog(existing?.slug);
@@ -188,9 +200,11 @@ export async function togglePublish(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Invalid id" };
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data: existing, error: readErr } = await supabase
     .from("products")
     .select("status, slug, published_at")
+    .eq("store_id", storeId)
     .eq("id", parsed.data)
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
@@ -206,6 +220,7 @@ export async function togglePublish(input: unknown): Promise<ActionResult> {
           ? existing.published_at ?? new Date().toISOString()
           : existing.published_at,
     })
+    .eq("store_id", storeId)
     .eq("id", parsed.data);
   if (error) return { ok: false, error: error.message };
 
@@ -229,11 +244,13 @@ export async function upsertVariants(input: unknown): Promise<ActionResult> {
   }
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const productId = parsed.data.productId;
 
   const { data: existing, error: readErr } = await supabase
     .from("product_variants")
     .select("id")
+    .eq("store_id", storeId)
     .eq("product_id", productId);
   if (readErr) return { ok: false, error: readErr.message };
 
@@ -258,6 +275,7 @@ export async function upsertVariants(input: unknown): Promise<ActionResult> {
   const toInsert: Array<Record<string, unknown>> = [];
   parsed.data.variants.forEach((v, i) => {
     const base = {
+      store_id: storeId,
       product_id: productId,
       sku: v.sku || null,
       title: v.title,
@@ -291,6 +309,7 @@ export async function upsertVariants(input: unknown): Promise<ActionResult> {
   const { data: slugRow } = await supabase
     .from("products")
     .select("slug")
+    .eq("store_id", storeId)
     .eq("id", productId)
     .maybeSingle();
   revalidateCatalog(slugRow?.slug);
@@ -340,6 +359,7 @@ export async function uploadProductImage(
   }
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
   const key = `${parsed.data.productId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
@@ -359,6 +379,7 @@ export async function uploadProductImage(
   const { data: maxRow } = await supabase
     .from("product_media")
     .select("position")
+    .eq("store_id", storeId)
     .eq("product_id", parsed.data.productId)
     .order("position", { ascending: false })
     .limit(1)
@@ -368,6 +389,7 @@ export async function uploadProductImage(
   const { data: inserted, error: insertErr } = await supabase
     .from("product_media")
     .insert({
+      store_id: storeId,
       product_id: parsed.data.productId,
       url,
       alt: parsed.data.alt ?? null,
@@ -384,6 +406,7 @@ export async function uploadProductImage(
   const { data: slugRow } = await supabase
     .from("products")
     .select("slug")
+    .eq("store_id", storeId)
     .eq("id", parsed.data.productId)
     .maybeSingle();
   revalidateCatalog(slugRow?.slug);
@@ -406,9 +429,11 @@ export async function deleteProductImage(input: unknown): Promise<ActionResult> 
   if (!parsed.success) return { ok: false, error: "Invalid input" };
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   const { data: row, error: readErr } = await supabase
     .from("product_media")
     .select("url")
+    .eq("store_id", storeId)
     .eq("id", parsed.data.id)
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
@@ -426,12 +451,14 @@ export async function deleteProductImage(input: unknown): Promise<ActionResult> 
   const { error } = await supabase
     .from("product_media")
     .delete()
+    .eq("store_id", storeId)
     .eq("id", parsed.data.id);
   if (error) return { ok: false, error: error.message };
 
   const { data: slugRow } = await supabase
     .from("products")
     .select("slug")
+    .eq("store_id", storeId)
     .eq("id", parsed.data.productId)
     .maybeSingle();
   revalidateCatalog(slugRow?.slug);
@@ -449,6 +476,7 @@ export async function reorderProductImages(input: unknown): Promise<ActionResult
   if (!parsed.success) return { ok: false, error: "Invalid input" };
 
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
   // Update positions in order, one-by-one. Small lists (≤20), so the round-
   // trip cost is negligible and we keep the policy check trivial.
   for (let i = 0; i < parsed.data.order.length; i++) {
@@ -456,6 +484,7 @@ export async function reorderProductImages(input: unknown): Promise<ActionResult
     const { error } = await supabase
       .from("product_media")
       .update({ position: i })
+      .eq("store_id", storeId)
       .eq("id", id)
       .eq("product_id", parsed.data.productId);
     if (error) return { ok: false, error: error.message };
@@ -464,6 +493,7 @@ export async function reorderProductImages(input: unknown): Promise<ActionResult
   const { data: slugRow } = await supabase
     .from("products")
     .select("slug")
+    .eq("store_id", storeId)
     .eq("id", parsed.data.productId)
     .maybeSingle();
   revalidateCatalog(slugRow?.slug);

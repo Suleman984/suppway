@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveStoreId } from "@/lib/store/active";
 
 /**
  * Server-side cart pricing engine. The client cart only stores variant
@@ -76,6 +77,7 @@ export async function priceCart(
 ): Promise<PricedCart> {
   const couponCode = options.couponCode?.trim().toUpperCase() || null;
   const supabase = await createClient();
+  const storeId = await getActiveStoreId();
 
   if (input.length === 0) {
     return emptyCart(couponCode ? "Add items to your cart first" : null);
@@ -109,6 +111,7 @@ export async function priceCart(
            product_media(url, position),
            product_categories(category_id))`,
       )
+      .eq("store_id", storeId)
       .in("id", variantIds);
     if (variantErr) {
       throw new Error(`Failed to price cart: ${variantErr.message}`);
@@ -190,6 +193,7 @@ export async function priceCart(
     .select(
       "id, title, code, kind, value, scope, product_id, category_id, min_subtotal_cents, max_uses, uses_count, starts_at, ends_at, is_active",
     )
+    .eq("store_id", storeId)
     .or(orParts.join(","));
   const now = Date.now();
 
